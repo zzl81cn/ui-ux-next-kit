@@ -1,0 +1,14 @@
+{
+  "name": "ui-ux-next-audit",
+  "displayName": "UI/UX Next Audit",
+  "description": "Read-only UI/UX consistency audit for frontend projects. Establishes a baseline against React 19 + Ant Design 6, scans tokens/components/states, writes a structured report to the project root, and emits grouped fix prompts for repair agents.",
+  "version": "0.1.0",
+  "author": "Lecoo Frontend Governance",
+  "license": "MIT",
+  "keywords": ["ui", "ux", "audit", "antd", "react", "design-system", "agent-skill", "cursor"],
+  "platforms": ["cursor", "claude", "codex"],
+  "install": {
+    "cursor": "Copy or symlink this repo to .cursor/skills/ui-ux-next-audit (or ~/.cursor/skills/ui-ux-next-audit)",
+    "note": "Agent loads SKILL.md when the user asks for a UI/UX audit."
+  }
+}

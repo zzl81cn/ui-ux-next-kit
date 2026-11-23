@@ -1,19 +1,19 @@
 ---
-name: ui-ux-next-audit
+name: ui-ux-next-kit
 description: >-
-  Read-only UI/UX consistency and interaction-quality audit for frontend
-  projects. Establishes a baseline against React 19 + Ant Design 6, scans
-  tokens/components/states/a11y, writes YYYYMMDD-[project]UI-UX审计报告.md to
-  the project root, and emits grouped fix prompts. Use when the user asks to
-  audit UI/UX, check style pollution, evaluate UI consistency, generate UI
-  fix prompts, or run ui-ux-next-audit / UI-UX审计套件.
+  UI/UX Next Kit: read-only UI/UX consistency and interaction-quality audit for
+  frontend projects. Establishes a baseline against React 19 + Ant Design 6,
+  scans tokens/components/states/a11y, writes YYYYMMDD-[project]UI-UX审计报告.md
+  to the project root, and emits grouped fix prompts. Use when the user asks to
+  audit UI/UX, check style pollution, evaluate UI consistency, generate UI fix
+  prompts, or run ui-ux-next-kit / ui-ux-next-audit / UI-UX审计套件.
 ---
 
-# UI/UX Next Audit
+# UI/UX Next Kit
 
 对前端项目做**只读**的 UI/UX 一致性与交互质量审计：定基准 → 按 A–I 维度扫描 → 落盘结构化报告 → 拆修复分组 Prompt → 给出规则沉淀建议。
 
-本 Skill 打包自《UI/UX 审计套件》。详细判定见 `references/`，扫描脚本见 `scripts/`，输出模板见 `templates/`。
+本仓库是可扩展的 **Kit**（当前主 Skill 为审计）；打包自《UI/UX 审计套件》。详细判定见 `references/`，扫描脚本见 `scripts/`，输出模板见 `templates/`。
 
 ## 触发条件
 
@@ -23,7 +23,7 @@ description: >-
 - 检查样式污染、硬编码色、`.ant-*` 全局覆盖
 - 评估是否符合 React 19 + Ant Design 6
 - 生成 UI 修复提示词 / 审计报告
-- 提到 `ui-ux-next-audit` 或「UI-UX审计套件」
+- 提到 `ui-ux-next-kit`、`ui-ux-next-audit` 或「UI-UX审计套件」
 
 ## 只读与落盘
 

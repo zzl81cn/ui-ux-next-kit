@@ -8,7 +8,7 @@ ROOT="${1:-.}"
 cd "$ROOT"
 TOOL="$(resolve_search)"
 
-echo "=== ui-ux-next-audit: check-tokens ==="
+echo "=== ui-ux-next-kit: check-tokens ==="
 echo "cwd: $(pwd)"
 echo "search: $TOOL"
 echo

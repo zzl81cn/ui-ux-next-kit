@@ -7,7 +7,7 @@ ROOT="${1:-.}"
 cd "$ROOT"
 TOOL="$(resolve_search)"
 
-echo "=== ui-ux-next-audit: check-globals ==="
+echo "=== ui-ux-next-kit: check-globals ==="
 echo "cwd: $(pwd)"
 echo "search: $TOOL"
 echo

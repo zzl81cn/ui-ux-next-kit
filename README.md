@@ -1,12 +1,14 @@
-# ui-ux-next-audit
+# ui-ux-next-kit
 
-把《UI/UX 审计套件》打包成开源、可一键安装的 **Agent Skill**：对前端项目做只读 UI/UX 审计，在**项目根目录**落盘结构化报告，并输出可直接交给修复 Agent 的分组 Prompt。
+把《UI/UX 审计套件》打包成开源、可一键安装的 **Agent Skill Kit**：对前端项目做只读 UI/UX 审计，在**项目根目录**落盘结构化报告，并输出可直接交给修复 Agent 的分组 Prompt。
+
+**Kit** 表示这是可扩展的工程资产包——当前主能力是审计与修复分组；后续可在同一仓库下增加脚手架、DESIGN 对齐检查等 Skill，而不改品牌名。
 
 这样做不只是方便团队在多项目里复用同一套规则，也契合现代 **Agentic Engineering**（AI 辅助工程）的趋势——把审计基准、扫描脚本和防翻车修复 Prompt 沉淀成工程资产，而不是散落在对话里的一次性提示词。
 
 命名里的 **Next** 表示面向现代栈（React 19 + Ant Design 6），也表示把 UI/UX 治理推进到下一阶段。灵感来自开源 Agent Skill 形态（如 [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)），但本仓库聚焦 **审计 → 报告 → 修复分组 → 规则沉淀**，而不是设计灵感库。
 
-曾考虑过的备选名（均含 next / 治理语义）：`next-ui-governor`（UI 治理专家）、`nextgen-ui-audit`（下一代审计套件）、`ui-next-guard`（拦截硬编码与样式污染的守卫）。最终采用 **`ui-ux-next-audit`**（仓库目录常作 `ui-ux-next-audit-skill`）：直击审计场景，又对 Next.js / React 现代栈友好。
+曾用名 / 备选：`ui-ux-next-audit`（仍可作为触发别名）、`next-ui-governor`、`nextgen-ui-audit`、`ui-next-guard`。现统一为 **`ui-ux-next-kit`**。
 
 ## 功能
 
@@ -30,7 +32,7 @@ Agent 读入本 Skill 的 `SKILL.md` 后，按四步执行（用户只需说「�
 标准开源 Skill 布局（可发布到 GitHub，经 Git Submodule、软链或复制到 `.cursor/skills` 一键加载）：
 
 ```text
-ui-ux-next-audit-skill/           # 仓库目录（Skill 名：ui-ux-next-audit）
+ui-ux-next-kit/                   # 仓库目录（Skill 名：ui-ux-next-kit）
 ├── SKILL.md                      # 核心引导与指令（Agent 识别的主协议）
 ├── skill.json
 ├── README.md                     # 给人看的安装与使用说明
@@ -58,32 +60,34 @@ ui-ux-next-audit-skill/           # 仓库目录（Skill 名：ui-ux-next-audit�
 ```bash
 # 项目级
 mkdir -p .cursor/skills
-ln -s /absolute/path/to/ui-ux-next-audit-skill .cursor/skills/ui-ux-next-audit
+ln -s /absolute/path/to/ui-ux-next-kit .cursor/skills/ui-ux-next-kit
 
 # 个人级
 mkdir -p ~/.cursor/skills
-ln -s /absolute/path/to/ui-ux-next-audit-skill ~/.cursor/skills/ui-ux-next-audit
+ln -s /absolute/path/to/ui-ux-next-kit ~/.cursor/skills/ui-ux-next-kit
 ```
 
 团队推荐用 **Git Submodule** 挂到各业务仓，底层规则或修复 Prompt 一迭代，各项目 `git pull`（或更新 submodule）即可同步：
 
 ```bash
-git submodule add <your-git-url> .cursor/skills/ui-ux-next-audit
+git submodule add <your-git-url> .cursor/skills/ui-ux-next-kit
 ```
 
 ## 使用
 
 在目标前端项目中对 Agent 说：
 
-- 「按 ui-ux-next-audit 做一次 UI/UX 审计」
+- 「按 ui-ux-next-kit 做一次 UI/UX 审计」
 - 「检查样式污染并生成审计报告」
 - 「评估是否符合 React 19 + Ant Design 6」
 - 「生成 UI 修复提示词」
 
+（旧名 `ui-ux-next-audit` 仍可作为触发别名。）
+
 手动扫描（在目标项目根）：
 
 ```bash
-bash /path/to/ui-ux-next-audit-skill/scripts/run-all.sh
+bash /path/to/ui-ux-next-kit/scripts/run-all.sh
 ```
 
 ## 依赖

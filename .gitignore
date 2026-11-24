@@ -1,5 +1,10 @@
 .DS_Store
 node_modules/
+dist/
+*.tsbuildinfo
 *.log
 .idea/
 .vscode/
+.env
+.env.*
+!.env.example

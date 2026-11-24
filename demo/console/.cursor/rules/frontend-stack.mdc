@@ -1,0 +1,97 @@
+---
+description: 前端框架版本与 antd v6 API（写 UI 必读；弃用项用 verify:antd-v6 卡住）
+globs: "**/*.{tsx,ts}"
+alwaysApply: false
+---
+
+# 前端框架版本
+
+对齐参考控制台（`apps/console`）。版本以范本 `package.json` 的精确号为准，本文件不另定一套。当前范本是 **React 19.3**、**antd 6.6.5**、**@ant-design/pro-components 3.1.14-6**、**@ant-design/icons 6.3.4**。有手机壳时 **antd-mobile 5.43.0**。
+
+- `package.json` 写精确版本，禁止 `^`，禁止顺手升级。要升级先改范本并跑过验证，再同步到本项目。
+- 壳是 Vite + React Router 的 SPA。不要引入 Next.js，也不要使用 Ant Design Pro 的 Umi 脚手架。ProComponents 只当组件库用。
+- 若前后端放在同一仓库：界面在 `apps/console`，接口在 `apps/api`，契约在 `contracts/openapi.yaml`。控制台不读库，API 不渲染页面。构建后的静态文件可以由 API 托管。细则见套件 `references/exemplar-rpa-architecture.md`。执行面（Worker、Temporal、Playwright）不是这套后台的必选项。
+- 业务页不要直接铺一屏裸 `ProTable` / `ProForm`。走适配层（范本是 `DataTable`），Pro 的 beta 变更只改适配层。
+- 主题只走 `ConfigProvider`。颜色优先 `var(--ant-*)`，不要为单页全局覆盖大片 `.ant-*`。
+
+本文件来自范本 `.cursor/rules/console-antd-v6.mdc`。控制台专有路径（执行记录、队列）不抄进来；弃用 API 和版本纪律原样保留。
+
+## 未尽事宜
+
+UI、UX 规范未尽事宜，严格按照 antd 的规范实现。规范已经写了的尺寸、文案、顺序和状态仍以规范为准。
+
+## 手机（视口 &lt; 768px 时才做）
+
+只做桌面的项目不要安装 `antd-mobile`。要做手机壳时：
+
+- 断点只认一处：`useIsMobile()` 对齐 antd `md`。CSS 用 `@media (max-width: 767.98px)`，不另起断点。
+- 外壳分开：桌面 `ProLayout`，手机单独的壳。业务请求和状态放共用 hook。页面入口只切换一次，不在一个文件里铺 `isMobile ?`。
+- `antd-mobile` 只许出现在手机壳、`Responsive*`（手机一套、桌面 antd 一套）和 `*Mobile` 组件。桌面路径不得 import。
+- 桌面右侧 Drawer，手机改为底部弹层。正文共用同一个内容组件。
+- 触控目标至少 44px。改完先看手机主路径，再看桌面，桌面不得因手机适配回归。
+
+## 动手前
+
+1. 新页面优先用项目里的列表适配层和筛选条，不从 antd 5 项目原样粘贴 prop。
+2. 从 antd 5 的页面拷 UI 时，先按下表改一轮。
+3. 本地出现 `[antd: …] is deprecated` 或 TS `ts(6385)` 删除线，同一处必须改。禁止 `@ts-expect-error` 或忽略。
+4. 提交前跑版本检查。范本脚本是 `scripts/verify-console-antd-v6.mts`（`pnpm verify:console-antd`）。新项目把它拷过来，把扫描目录改成自己的 `src`，脚本名可用 `verify:antd-v6`。只含 `antd-mobile`、没有 `from "antd"` 的文件，跳过那些在 antd-mobile 5 里仍合法的 prop（如 `visible`、`destroyOnClose`）。
+
+## 弃用 API → antd 6
+
+| 弃用 | 改用 |
+| --- | --- |
+| `Modal` / `Drawer` / `Dropdown` 等的 `visible` | `open` |
+| `onVisibleChange` | `onOpenChange` |
+| `Modal` / `Drawer` 的 `destroyOnClose` | `destroyOnHidden` |
+| `Tabs` 的 `destroyInactiveTabPane` | `destroyOnHidden` |
+| `Space` 的 `direction` | `orientation`（`vertical` / `horizontal`） |
+| `Alert` 的 `message` | `title` |
+| `Spin` 的 `tip` | `description` |
+| `Drawer` 的 `width` | `size`（数字或 `default` / `large`） |
+| `Drawer` / `Modal` 的 `maskClosable` | `mask={{ closable: false }}`（需要关掉遮罩点击时） |
+| `Input` 的 `addonBefore` / `addonAfter` | `Space.Compact` |
+| `dropdownClassName` / 部分 `overlayClassName` | `classNames` / `popupClassName`（按组件文档） |
+| `Select` 的 `dropdownMatchSelectWidth` | `popupMatchSelectWidth` |
+| `Card` / `Modal` / `Drawer` 的 `bodyStyle` / `headStyle` | `styles.body` / `styles.header` |
+
+`Modal` 仍可用 `width`。`Drawer` 不要写 `width`。
+
+`destroyOnHidden` 时 Form 会随层卸载：先打开，再在 `useEffect` 或打开回调里 `setFieldsValue` / `resetFields`。不要在层关着的时候写表单。
+
+## 系统设置（基础框架）
+
+后台要有「系统设置 → 系统配置」。站点名称和 Logo 不写死在壳里。范本页是 `SystemSettingsPage.tsx`，品牌数据是 `lib/siteBrand.ts`。
+
+直出一整套后台时，先按套件 `references/public-components.md` 的「直出路由兜底」做菜单，不能只交登录和数据统计。系统配置的页签是：品牌标识、登录安全、登录验证码、列表刷新、界面动效、执行端发布。列表刷新和界面动效只存本机。「执行端发布」页签要在，不抄范本的发布命令。
+
+品牌标识和登录页、顶栏是同一份，见套件 `references/public-components.md` 的「品牌」（范本 `docs/UI_SPEC_EXTRACTION.md` §15、`docs/DESIGN.md` §3.12）。四个槽：`logo`（登录页高 40px，桌面顶栏 28px，手机列表顶栏 26px；说明里的 32px 不是这三处高度）、`logo_dark`（只换深色顶栏；不传时只对 SVG 自动改浅色字，位图必须另传；登录页不用）、`logo_collapsed`（侧栏收起才用，现在的壳不显示）、`favicon`（浏览器标签）。另有 `site_name`（最长 40，可空）、`site_tag`（最长 16，可空，登录页和顶栏同一枚）、`logo_alt`（必填，最长 40，兼作页面标题）。上传立刻生效，文字要点保存。
+
+- 公开 `GET /branding`。改文字 `PUT /settings/branding`。传图 `PUT /settings/branding/{slot}`。格式只收 SVG / PNG / JPG / WEBP / GIF / ICO。
+- 上传成功后通知壳重新取品牌，不要求重新登录。每个槽可恢复默认。上传区可点击、可拖拽，并有 `aria-label`。
+- 顶栏、登录页、favicon 都读这份配置。深色且没有 `logo_dark` 时，位图不要假装能自动变色。
+
+当前任务和分组表用同一套圆标，见套件 `references/public-components.md` 的「机器人头像」（范本 `docs/UI_SPEC_EXTRACTION.md` §16、`docs/DESIGN.md` §3.13）。直出后台的顶栏默认不放这组圆，右侧停在通知、主题、用户。有执行机才加在通知左边，桌面 24px、手机 22px。当前任务的圆在标题下第二行，28px，叠距 8px，字号 18px，才从左撞入。离线用不透明灰。
+
+## 列表
+
+会随数据增长的列表都要分页，表格、卡片、抽屉里的子列表都算。
+
+- 优先服务端分页（`limit` / `offset` + `total`）。接口没有就先补接口，不在前端拉全量再截断。
+- 禁止「拉全量再只显示前 N 条」冒充分页。摘要卡若只看最近几条，必须有入口进完整分页列表。
+- 桌面用表格分页；手机用上滑加载或简单分页，查询参数同一份。
+- 轮询只刷当前页。有界且很小的枚举可以不分页，但要说得清上界。
+
+## 发版
+
+默认 Jenkins 构建 Docker 镜像，目标机 `docker compose -f docker-compose.prod.yml pull && up -d`。不把本机构建或拷贝 `dist` 当正式发版。上线参数默认关闭。凭据放 Jenkins Credentials。Dockerfile 不要写 `# syntax=docker/dockerfile`。纯前端镜像只留 nginx 和构建产物；同仓有 API 时仍是这一条流水线，由 API 托管静态文件。细则见套件 `references/exemplar-deploy.md`。
+
+## 设计稿
+
+Figma 交付若是 Arco，按同目录 `figma-handoff.mdc` 预防：不按 Arco 组件生成页面，不新增 `.ant-*` 覆盖贴像素，外观只进 token，交互留 antd 原有行为。
+
+## 参考
+
+- 范本规则：`.cursor/rules/console-antd-v6.mdc`
+- 范本扫描：`scripts/verify-console-antd-v6.mts`
+- 列表与筛选的成功做法：本套件 `references/public-components.md`。可复用的是筛选条加满高表；API执行记录只是填进去的一页，换列表时换列和文案。

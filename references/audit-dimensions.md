@@ -8,7 +8,7 @@
 
 ## B. 组件复用与选型
 
-对照三档。原生控件 / 自写弹窗替代组件库；同一功能多套自研；公共组件存在但未用；第二套 UI 库。无组件库时修复方向写「迁到 React 19 + Ant Design 6」。
+对照三档和 `exemplar-rpa-console.md`。原生控件 / 自写弹窗替代组件库；同一功能多套自研；公共组件存在但未用；桌面再引入 antd 以外的第二套 UI 库（手机壳里的 `antd-mobile` 按范本不算）。无组件库时修复方向写「按参考控制台的前端栈迁」。
 
 ## C. 布局与间距
 
@@ -32,7 +32,7 @@ message / notification / 确认用法；术语；中英混用；错误是否告�
 
 ## H. 框架适配
 
-弹层挂载与 z-index；表单受控混用；全局覆盖 `.ant-*` / `.el-*`；主题闪烁 / hydration；locale。
+弹层挂载与 z-index；表单受控混用；全局覆盖 `.ant-*` / `.el-*`；主题闪烁 / hydration；locale。Figma 交付是 Arco 时，不把「没用 Arco 组件」算进本维。全局改写 `.ant-btn` 导致 `loading`、`disabled`、`danger`、`type` 失效，记 High。其余大面积内部类名覆盖按 `references/figma-handoff.md` 记。修复方向是 token 对齐，覆盖分批删，按钮改回 antd `Button`。
 
 ## I. 工程卡口
 

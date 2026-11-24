@@ -1,0 +1,21 @@
+---
+description: Figma 交付是 Arco 时不要硬套；外观用 antd v6 token，保留组件交互
+globs: "**/*.{tsx,ts,css,less,scss}"
+alwaysApply: false
+---
+
+# 设计稿不要硬套
+
+Figma 交付若是 Arco，它只提供手绘视觉规格。界面代码用 antd v6 和项目里已有的公共组件。
+
+已经出过的问题：按 Arco 稿改写了 antd `Button`，按钮只剩外观，`loading`、`disabled`、`danger`、`type`、`htmlType` 和图标按钮都不再按组件自己的行为走。不要再做。
+
+不要做：
+
+- 不要按 Arco 的组件名、图层结构生成页面，也不要再装一套 UI 库来还原设计稿。
+- 不要重写 `.ant-btn` 的结构、指针和内部节点。按钮继续用 antd `Button`，高度、圆角、字号进 token。
+- 不要为贴某一帧新增或加厚 `.ant-*` 内部类名覆盖。色、字号、间距、圆角写进 `ConfigProvider` token 或 `var(--ant-*)`。
+- 已有覆盖分批删：一批只迁一类（颜色、圆角或控件高度），迁完再动下一屏。
+- 不要改组件原有交互：焦点、键盘、展开、校验、确认保持 antd 默认。UI、UX 规范未尽事宜，严格按照 antd 的规范实现。
+
+对不上名字时，选语义最近的 antd 组件，把规格里的尺寸放进 token。细则见套件 `references/figma-handoff.md`。

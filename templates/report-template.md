@@ -9,12 +9,12 @@
 ## 基准摘要
 
 - 技术栈：
-- 与组织推荐栈（React 19 + Ant Design 6）的关系：已经是且版本达到 / 已是这套但版本低于 19 或 6 / 另一套完整库且内部一致 / 没有组件库或控件按页面手写
+- 与模板推荐栈（参考控制台：React 19 + Ant Design 6 + ProLayout，见 `references/exemplar-rpa-console.md`）的关系：已经是且版本达到 / 已是这套但版本或壳低于范本 / 另一套完整库且内部一致 / 没有组件库或控件按页面手写
 - Token 定义：
 - 公共组件：
 - Layout 骨架：
 - 现有规则 / lint：
-- 设计稿：
+- 设计稿：（若为 Arco：交付是手绘视觉规格，代码基准是 antd v6，不按 Arco 组件硬套。见套件 `references/figma-handoff.md`）
 
 ---
 

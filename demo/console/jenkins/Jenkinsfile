@@ -1,0 +1,146 @@
+// 控制台：构建并推送静态站点镜像，可选 SSH 上线。
+// 说明见仓库 references/exemplar-deploy.md
+
+pipeline {
+  agent any
+
+  options {
+    disableConcurrentBuilds()
+    timeout(time: 30, unit: 'MINUTES')
+    timestamps()
+  }
+
+  parameters {
+    string(
+      name: 'IMAGE_TAG',
+      defaultValue: '',
+      description: '镜像标签；空则用 git short SHA + BUILD_NUMBER'
+    )
+    booleanParam(
+      name: 'PUSH_IMAGE',
+      defaultValue: true,
+      description: '构建后推送到镜像仓库'
+    )
+    booleanParam(
+      name: 'DEPLOY',
+      defaultValue: false,
+      description: '推送后 SSH 到目标机 docker compose pull && up'
+    )
+    string(
+      name: 'DEPLOY_HOST',
+      defaultValue: '',
+      description: '部署机（DEPLOY=true 时必填）'
+    )
+    string(
+      name: 'DEPLOY_USER',
+      defaultValue: 'root',
+      description: '部署机 SSH 用户'
+    )
+    string(
+      name: 'DEPLOY_DIR',
+      defaultValue: '/opt/console-demo',
+      description: '目标机 compose 目录'
+    )
+  }
+
+  environment {
+    REGISTRY = "${env.REGISTRY ?: 'registry.example.com'}"
+    IMAGE_NAMESPACE = "${env.IMAGE_NAMESPACE ?: 'demo'}"
+    APP_IMAGE = "${env.APP_IMAGE ?: "${REGISTRY}/${IMAGE_NAMESPACE}/console-demo"}"
+    DOCKER_CREDENTIALS_ID = "${env.DOCKER_CREDENTIALS_ID ?: 'docker-registry'}"
+    SSH_CREDENTIALS_ID = "${env.SSH_CREDENTIALS_ID ?: 'deploy-ssh'}"
+    NODE_IMAGE = "${env.NODE_IMAGE ?: 'node:22-alpine'}"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+        script {
+          def sha = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+          def tag = params.IMAGE_TAG?.trim()
+          if (!tag) {
+            tag = "${sha}-${env.BUILD_NUMBER}"
+          }
+          env.EFFECTIVE_TAG = tag
+          echo "IMAGE_TAG=${env.EFFECTIVE_TAG}"
+        }
+      }
+    }
+
+    stage('Build image') {
+      steps {
+        sh '''
+          set -e
+          export DOCKER_BUILDKIT=1
+          docker build \
+            -f demo/console/Dockerfile \
+            --build-arg NODE_IMAGE="${NODE_IMAGE}" \
+            -t "${APP_IMAGE}:${EFFECTIVE_TAG}" \
+            -t "${APP_IMAGE}:latest" \
+            demo/console
+        '''
+      }
+    }
+
+    stage('Push image') {
+      when {
+        expression { return params.PUSH_IMAGE == true }
+      }
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: env.DOCKER_CREDENTIALS_ID,
+          usernameVariable: 'REG_USER',
+          passwordVariable: 'REG_PASS'
+        )]) {
+          sh '''
+            set -e
+            echo "$REG_PASS" | docker login "${REGISTRY}" -u "$REG_USER" --password-stdin
+            docker push "${APP_IMAGE}:${EFFECTIVE_TAG}"
+            docker push "${APP_IMAGE}:latest"
+          '''
+        }
+      }
+    }
+
+    stage('Deploy') {
+      when {
+        expression { return params.DEPLOY == true }
+      }
+      steps {
+        script {
+          def host = params.DEPLOY_HOST?.trim()
+          if (!host) {
+            error('DEPLOY=true 时必须填写 DEPLOY_HOST')
+          }
+          def user = params.DEPLOY_USER?.trim() ?: 'root'
+          def dir = params.DEPLOY_DIR?.trim() ?: '/opt/console-demo'
+          sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+            sh """
+              set -e
+              ssh -o StrictHostKeyChecking=accept-new ${user}@${host} '
+                set -e
+                cd ${dir}
+                export APP_IMAGE=${env.APP_IMAGE}
+                export APP_IMAGE_TAG=${env.EFFECTIVE_TAG}
+                docker compose -f docker-compose.prod.yml pull app
+                docker compose -f docker-compose.prod.yml up -d
+                docker compose -f docker-compose.prod.yml ps
+                curl -fsS http://127.0.0.1/healthz || true
+              '
+            """
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "OK app=${APP_IMAGE}:${EFFECTIVE_TAG}"
+    }
+    always {
+      sh 'docker logout "${REGISTRY}" >/dev/null 2>&1 || true'
+    }
+  }
+}

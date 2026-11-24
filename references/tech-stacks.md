@@ -2,10 +2,12 @@
 
 ## 固定推荐栈
 
-**React 19 + Ant Design 6**
+**参考控制台**（`apps/console`）。细则、版本和「不要原样抄」的部分见 `exemplar-rpa-console.md`。
 
-- 新项目、从无组件库迁入的项目：直接用这两个版本，不采用更低主版本。
-- 已在用 React + Ant Design 但低于 19 或 6：版本差距单独记一条，排期升级；单次样式修复不顺手升级。
+框架仍是 React 19 + Ant Design 6，并带上范本里的 ProComponents、ProLayout、React Router 7、TanStack Query、OpenAPI 类型生成。主色 `#1f6feb`，主题只走 `ConfigProvider`。
+
+- 新项目、从无组件库迁入的项目：按范本起，不另选 UI 库，不采用更低的 React / Ant Design 主版本。
+- 已在用 React + Ant Design 但低于 19 或 6，或没有 ProLayout / 统一主题：版本和壳的差距单独记一条，排期对齐范本。单次样式修复不顺手升级、不顺手换壳。
 
 ## 为什么固定这套
 
@@ -24,7 +26,7 @@
    但空状态 / 筛选 / 确认框若已各页不同，仍可单独成 Medium/High。
 
 3. **没有组件库，或同一职责多套手写控件**  
-   至少 Medium。空状态、筛选、表格、危险操作已各页不同 → High。修复方向：迁到 React 19 + Ant Design 6。
+   至少 Medium。空状态、筛选、表格、危险操作已各页不同 → High。修复方向：按 `exemplar-rpa-console.md` 迁到参考控制台那套前端。
 
 ## 仅线上、无仓库
 
@@ -36,9 +38,9 @@
 
 | 场景 | 使用 |
 | --- | --- |
-| 页面骨架 | `Layout` |
+| 页面骨架 | `ProLayout`（`layout="mix"`，侧栏 220） |
 | 列表 | `Table` |
-| 筛选 | `Form` + `Select` / `Segmented` / `DatePicker` |
+| 筛选 | 公共筛选组件（`references/public-components.md`，源自 DESIGN.md §3.1） |
 | 空数据 | `Empty`（区分无数据 vs 筛选为空） |
 | 加载 / 失败 | `Spin` / `Skeleton`；失败提供重试 |
 | 危险操作 | `Button danger` + `Popconfirm` / `Modal.confirm` |

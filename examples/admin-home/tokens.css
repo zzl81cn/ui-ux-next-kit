@@ -1,0 +1,52 @@
+/**
+ * 管理后台 · 系统概况
+ * 来源：已登录的 dashboard 计算样式。不含站点地址。
+ * 采样：2026-11-23，桌面视口 1440。账号信息未写入。
+ */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+
+  --color-primary: #1677ff;
+  --color-primary-hover: #4096ff;
+  --color-primary-active: #0958d9;
+  --color-primary-bg: #e6f4ff;
+  --color-on-primary: #ffffff;
+
+  --color-brand: #ff6a00;
+  --color-brand-hover: #e56200;
+
+  --color-text: rgba(0, 0, 0, 0.88);
+  --color-text-secondary: rgba(0, 0, 0, 0.65);
+  --color-background: #f5f5f5;
+  --color-surface: #ffffff;
+
+  --color-bar-product: #ff6b1a;
+  --color-bar-floor: #3d7eff;
+  --color-bar-banner: #8b5cf6;
+  --color-bar-news: #1bbf75;
+
+  --font-size-body: 14px;
+  --font-size-section: 16px;
+  --font-size-hero: 22px;
+  --font-weight-hero: 700;
+  --font-weight-section: 600;
+
+  --space-header-x: 24px;
+  --space-page: 24px;
+
+  --radius-menu: 12px;
+  --radius-card: 12px;
+  --radius-shell: 16px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --shadow-header: 0 1px 2px #0f172a0a, 0 8px 24px #0f172a0f;
+  --shadow-sider: 4px 0 24px #0f172a0a;
+  --shadow-card: 0 2px 4px #0f172a0d, 0 14px 36px #0f172a1a;
+
+  --size-header: 56px;
+  --size-sider: 216px;
+  --size-menu-item: 40px;
+  --size-bar: 22px;
+}

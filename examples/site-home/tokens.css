@@ -1,0 +1,60 @@
+/**
+ * 官网首页 · 从桌面视口（1440）计算样式抽出。不含站点名。
+ * 采样日：2026-11-23。色值与官网 design-tokens 一致，布局数字以当次计算样式为准。
+ */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+
+  --color-primary: #ff6a00;
+  --color-primary-hover: #e56200;
+  --color-on-primary: #ffffff;
+  --color-text: #000000;
+  --color-text-secondary: #333333;
+  --color-text-muted: rgba(0, 0, 0, 0.88);
+  --color-background: #ffffff;
+  --color-floor: #f5f5f7;
+  --color-footer: #000000;
+  --color-on-footer: #ffffff;
+  --color-header-border: #f3f4f6;
+  --color-card: #ffffff;
+
+  --font-size-nav: 14px;
+  --font-size-body: 16px;
+  --font-size-price-symbol: 24px;
+  --font-size-title: 36px;
+  --line-height-nav: 20px;
+  --line-height-title: 1.2;
+  --font-weight-title: 700;
+
+  --space-nav-x: 12px;
+  --space-nav-y: 6px;
+  --space-card-x: 28px;
+  --space-card-top: 32px;
+  --space-card-bottom: 20px;
+  --space-floor-top: 56px;
+  --space-floor-bottom: 60px;
+  --space-grid: 20px;
+  --space-actions: 20px;
+
+  --radius-nav: 4px;
+  --radius-card: 24px;
+  --radius-pill: 999px;
+
+  --shadow-header: 0 1px 2px -1px rgba(0, 0, 0, 0.1), 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  --size-header-height: 56px;
+  --size-logo-width: 117px;
+  --size-logo-height: 32px;
+  --size-content: 1200px;
+  --size-card: 590px;
+  --size-hero-card-height: 520px;
+  --size-banner-height: 720px;
+  --size-button-height: 40px;
+  --banner-aspect: 8 / 3;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-hover: 0.3s;
+}

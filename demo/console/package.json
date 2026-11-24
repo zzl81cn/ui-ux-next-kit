@@ -1,0 +1,30 @@
+{
+  "name": "console-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --pretty false && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@ant-design/icons": "6.3.4",
+    "@ant-design/pro-components": "3.1.14-6",
+    "@tanstack/react-query": "5.104.1",
+    "antd": "6.6.5",
+    "dayjs": "1.11.23",
+    "echarts": "5.6.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-router-dom": "7.18.4"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.3"
+  }
+}

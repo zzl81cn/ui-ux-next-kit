@@ -1,6 +1,7 @@
-import { Table, Typography } from "antd";
-import { useMemo } from "react";
+import { Table, Typography, message } from "antd";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ManageRobotsModal } from "../components/ManageRobotsModal";
 import { RobotMemberAvatars } from "../components/RobotMemberAvatars";
 import { membersOf, ROBOT_GROUPS, useRobots, type RobotGroup } from "../mock/robots";
 
@@ -9,12 +10,12 @@ export function WorkersPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { robots } = useRobots();
-  const managing = ROBOT_GROUPS.find((group) => group.id === params.get("group"));
-  const rows = useMemo(() => ROBOT_GROUPS.map((group) => ({ ...group, members: membersOf(group.robot_ids, robots) })), [robots]);
+  const [groups, setGroups] = useState<RobotGroup[]>(ROBOT_GROUPS);
+  const managing = groups.find((group) => group.id === params.get("group"));
+  const rows = useMemo(() => groups.map((group) => ({ ...group, members: membersOf(group.robot_ids, robots) })), [groups, robots]);
 
   return (
     <div className="console-page">
-      {managing ? <p className="workers-managing">管理组员：{managing.name}</p> : null}
       <Table<RobotGroup & { members: ReturnType<typeof membersOf> }>
         rowKey="id"
         pagination={false}
@@ -37,6 +38,21 @@ export function WorkersPage() {
           { title: "机器人数", width: 100, render: (_, group) => group.robot_ids.length },
         ]}
       />
+      {managing ? (
+        <ManageRobotsModal
+          key={managing.id}
+          groupName={managing.name}
+          robots={robots}
+          memberIds={managing.robot_ids}
+          onCancel={() => navigate("/workers")}
+          onOk={async (ids) => {
+            await new Promise((resolve) => window.setTimeout(resolve, 400));
+            setGroups((prev) => prev.map((group) => (group.id === managing.id ? { ...group, robot_ids: ids } : group)));
+            message.success("已保存");
+            navigate("/workers");
+          }}
+        />
+      ) : null}
     </div>
   );
 }

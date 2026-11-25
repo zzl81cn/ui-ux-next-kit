@@ -23,7 +23,7 @@ import { ProLayout } from "@ant-design/pro-components";
 import { Avatar, Breadcrumb, Drawer, Dropdown, Radio, Tag, Tooltip } from "antd";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { PRODUCT_MARK } from "../brand";
+import { PRODUCT_LOGO } from "../brand";
 import { clearSession } from "../lib/session";
 import { brandTitle, headerLogoSrc, useSiteBrand } from "../lib/siteBrand";
 import { getMenuTree, subscribeMenus, visibleMenus, type MenuNode } from "../mock/menus";
@@ -93,10 +93,10 @@ function HeaderLogo({ src, fallback, mobile }: { src: string | null; fallback: s
   const [step, setStep] = useState<"src" | "fallback" | "mark">("src");
   useEffect(() => setStep("src"), [src, fallback]);
   const shown = step === "src" ? src : step === "fallback" ? fallback : null;
-  if (!shown) return <span className="console-sider-mark">{PRODUCT_MARK}</span>;
+  const mark = shown ?? PRODUCT_LOGO;
   return (
     <img
-      src={shown}
+      src={mark}
       alt=""
       style={{ height: mobile ? 26 : 28, maxWidth: mobile ? 120 : undefined, width: "auto", display: "block" }}
       onError={() => setStep(step === "src" && fallback && fallback !== src ? "fallback" : "mark")}
@@ -194,15 +194,15 @@ export function ConsoleLayout() {
           ? {
               colorMenuBackground: "transparent",
               colorTextMenu: "rgba(255, 255, 255, 0.65)",
-              colorTextMenuSelected: "rgba(255, 255, 255, 0.95)",
-              colorBgMenuItemSelected: "rgba(255, 255, 255, 0.04)",
+              colorTextMenuSelected: "#fff",
+              colorBgMenuItemSelected: "#3b82f6",
               colorBgMenuItemHover: "rgba(255, 255, 255, 0.04)",
             }
           : {
               colorMenuBackground: "#fff",
               colorTextMenu: "rgba(0, 0, 0, 0.75)",
-              colorTextMenuSelected: "#3b82f6",
-              colorBgMenuItemSelected: "#dbeafe",
+              colorTextMenuSelected: "#fff",
+              colorBgMenuItemSelected: "#3b82f6",
             },
       }}
       actionsRender={() => {

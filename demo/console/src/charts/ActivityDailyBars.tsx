@@ -22,23 +22,38 @@ function monthDay(iso: string, withUnit: boolean) {
 }
 
 /** 每日操作量。0 次是淡蓝短柱，最高那天是紫，其余是蓝。 */
-export function ActivityDailyBars({ series, peak }: { series: Day[]; peak: number }) {
+export function ActivityDailyBars({
+  series,
+  peak,
+  replayKey = 0,
+  reduceMotion = false,
+}: {
+  series: Day[];
+  peak: number;
+  /** 变一下就整图重画、重播入场（评审用的「重播」） */
+  replayKey?: number;
+  /** 演示里模拟「减少动效」；系统设置了也算 */
+  reduceMotion?: boolean;
+}) {
   const { dark } = useThemeMode();
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = hostRef.current;
     if (!el || series.length === 0) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = reduceMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const chart = echarts.getInstanceByDom(el) ?? echarts.init(el);
     const ink = dark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)";
     const total = series.length;
     chart.setOption(
       {
         animation: !reduce,
-        animationDuration: 700,
-        animationEasing: "cubicOut",
-        animationDurationUpdate: 400,
+        animationDuration: 1000,
+        animationEasing: "elasticOut",
+        animationDelay: (index: number) => index * 20,
+        animationDurationUpdate: 1000,
+        animationEasingUpdate: "elasticOut",
+        animationDelayUpdate: (index: number) => index * 20,
         tooltip: {
           trigger: "axis",
           appendTo: "body",
@@ -81,14 +96,26 @@ export function ActivityDailyBars({ series, peak }: { series: Day[]; peak: numbe
       },
       true,
     );
-    const observer = new ResizeObserver(() => chart.resize());
+    // observe() 会立刻回调一次，此时 resize 会把入场动画打断，所以只在宽度真的变了才 resize
+    let lastWidth = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === lastWidth) return;
+      lastWidth = el.clientWidth;
+      chart.resize();
+    });
     observer.observe(el);
     return () => {
       observer.disconnect();
       chart.dispose();
     };
-  }, [dark, peak, series]);
+  }, [dark, peak, series, replayKey, reduceMotion]);
 
   if (series.length === 0) return null;
-  return <div ref={hostRef} className="activity-echarts-bars" />;
+  const activeDays = series.filter((day) => day.count > 0).length;
+  return (
+    <>
+      <span className="sr-only">{`近 ${series.length} 天有 ${activeDays} 天活跃，单日最高 ${peak} 次`}</span>
+      <div ref={hostRef} className="activity-echarts-bars" aria-hidden="true" />
+    </>
+  );
 }

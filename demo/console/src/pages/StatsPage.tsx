@@ -1,5 +1,6 @@
-import { QuestionCircleOutlined } from "@ant-design/icons";
-import { Button, Card, Drawer, Popconfirm, Radio, Spin, Typography } from "antd";
+import { InfoCircleOutlined, QuestionCircleOutlined } from "@ant-design/icons";
+import { Button, Card, DatePicker, Drawer, Popconfirm, Radio, Spin, Tooltip, Typography } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DurationRing } from "../charts/DurationRing";
@@ -12,6 +13,7 @@ import { ActivityPanel } from "./ActivityPanel";
 
 const MOTION_KEY = "demo-stats-grown";
 const DAYS_KEY = "demo-stats-days";
+const MAX_SPAN = 366;
 const RATE_COLORS = ["#6d5efc", "#3b82f6", "#22c55e", "#ff8a3d", "#ec4899", "#2dd4bf"];
 
 function SkelBody({ height, lines = 4 }: { height?: number; lines?: number }) {
@@ -39,24 +41,32 @@ function readDays(): number {
   return parsed;
 }
 
-function useGrow(target: number, run: boolean) {
+function useGrow(target: number, run: boolean, delay = 0, snappy = false) {
   const [value, setValue] = useState(run ? 0 : target);
   useEffect(() => {
     if (!run) {
       setValue(target);
       return;
     }
-    const started = performance.now();
+    setValue(0);
     let frame = 0;
+    let started = 0;
     const tick = (now: number) => {
+      started ||= now;
       const t = Math.min(1, (now - started) / 600);
-      const eased = 1 - (1 - t) ** 3;
+      // snappy：近似条的 cubic-bezier(0.16, 1, 0.3, 1)，数字才跟得上条
+      const eased = snappy ? (t >= 1 ? 1 : 1 - 2 ** (-10 * t)) : 1 - (1 - t) ** 3;
       setValue(Math.round(target * eased));
       if (t < 1) frame = window.requestAnimationFrame(tick);
     };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, [run, target]);
+    const timer = window.setTimeout(() => {
+      frame = window.requestAnimationFrame(tick);
+    }, delay);
+    return () => {
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(frame);
+    };
+  }, [run, target, delay, snappy]);
   return value;
 }
 
@@ -66,11 +76,26 @@ const BATCHES = [
   { name: "邮件拉取", when: "11:40", result: "失败" },
 ];
 
+const FAILS = [
+  { name: "元素定位超时", count: 5 },
+  { name: "网络请求失败", count: 4 },
+  { name: "登录态过期", count: 3 },
+  { name: "权限不足", count: 2 },
+  { name: "页面结构变化", count: 1 },
+  { name: "凭证缺失", count: 0 },
+].filter((row) => row.count > 0);
+
 const TABLES = [
   { name: "dispatch", bytes: "1.2 GB", width: "100%" },
   { name: "run_log", bytes: "640 MB", width: "53%" },
   { name: "artifact", bytes: "220 MB", width: "18%" },
 ];
+
+/** 条内百分比：和条同时从 0 跳起，同样按序号晚 55ms。 */
+function RatePercent({ percent, run, index }: { percent: number; run: boolean; index: number }) {
+  const value = useGrow(percent, run, index * 55, true);
+  return <b>{value}%</b>;
+}
 
 export function StatsPage() {
   const navigate = useNavigate();
@@ -79,7 +104,11 @@ export function StatsPage() {
   const now = new Date();
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const seen = sessionStorage.getItem(MOTION_KEY) === "1";
-  const [days, setDays] = useState(readDays);
+  // 窗口 = [start, end]，含两端。7 / 30 天按钮 = 终点是今天往前数。自定义区间不记到本地。
+  const [range, setRange] = useState<[Dayjs, Dayjs]>(() => [dayjs().subtract(readDays() - 1, "day"), dayjs()]);
+  const days = range[1].startOf("day").diff(range[0].startOf("day"), "day") + 1;
+  const endIso = range[1].format("YYYY-MM-DD");
+  const endsToday = range[1].isSame(dayjs(), "day");
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(seen);
   const [grown, setGrown] = useState(seen || reduce);
@@ -97,8 +126,8 @@ export function StatsPage() {
         .map((row, index) => ({ ...row, color: RATE_COLORS[index % RATE_COLORS.length] })),
     [],
   );
-  const failCount = useGrow(3, grown && !seen);
-  const queueCount = useGrow(8, grown && !seen);
+  const failCount = useGrow(3, grown && !seen && !reduce);
+  const queueCount = useGrow(8, grown && !seen && !reduce);
   const running = true;
 
   const chartDelay = reduce ? 0 : loadMotion().chartDelayMs;
@@ -124,23 +153,17 @@ export function StatsPage() {
     return () => window.clearTimeout(timer);
   }, [enter, grown]);
 
-  function chooseDays(next: number) {
-    const clamped = Math.min(30, Math.max(1, next));
-    setDays(clamped);
-    localStorage.setItem(DAYS_KEY, String(clamped));
+  function applyRange(next: [Dayjs, Dayjs], remember?: number) {
+    setRange(next);
+    if (remember) localStorage.setItem(DAYS_KEY, String(remember));
     if (sessionStorage.getItem(MOTION_KEY) === "1") {
       setRefreshing(true);
       window.setTimeout(() => setRefreshing(false), 700);
     }
   }
 
-  function chooseRange(value: string) {
-    if (!value) return;
-    const start = new Date(`${value}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const span = Math.round((today.getTime() - start.getTime()) / 86400000);
-    chooseDays(span);
+  function chooseDays(next: number) {
+    applyRange([dayjs().subtract(next - 1, "day"), dayjs()], next);
   }
 
   const label = new Intl.DateTimeFormat("zh-CN", {
@@ -149,10 +172,6 @@ export function StatsPage() {
     month: "long",
     day: "numeric",
   }).format(now);
-  const todayValue = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(now);
-  const minValue = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(
-    new Date(now.getTime() - 30 * 86400000),
-  );
 
   return (
     <div className={enter && grown ? "stats-page is-enter" : "stats-page"}>
@@ -169,7 +188,7 @@ export function StatsPage() {
           </Button>
           <Radio.Group
             className="stats-days"
-            value={days === 7 || days === 30 ? days : undefined}
+            value={endsToday && (days === 7 || days === 30) ? days : undefined}
             optionType="button"
             buttonStyle="solid"
             onChange={(event) => chooseDays(event.target.value)}
@@ -178,7 +197,18 @@ export function StatsPage() {
               { label: "30 天", value: 30 },
             ]}
           />
-          <input className="stats-range" type="date" min={minValue} max={todayValue} aria-label="日期范围" onChange={(event) => chooseRange(event.target.value)} />
+          <DatePicker.RangePicker
+            className="stats-range"
+            aria-label="日期范围"
+            value={range}
+            allowClear={false}
+            disabledDate={(date) => date.isAfter(dayjs(), "day") || date.isBefore(dayjs().subtract(MAX_SPAN - 1, "day"), "day")}
+            onChange={(value) => {
+              const start = value?.[0];
+              const end = value?.[1];
+              if (start && end) applyRange([start, end]);
+            }}
+          />
         </div>
       </section>
       <div className="stats-grid">
@@ -228,7 +258,7 @@ export function StatsPage() {
             {ready ? (
               <>
                 <p className="stats-sub">一次成功 71% · vs T0 68%</p>
-                <TrendChart days={days} enter={enter} />
+                <TrendChart days={days} end={endIso} enter={enter} />
               </>
             ) : (
               <SkelBody height={200} lines={5} />
@@ -251,7 +281,10 @@ export function StatsPage() {
                 </div>
                 <span>{card.label}</span>
                 {ready ? (
-                  <i className="stats-health-bar" style={{ background: card.bar, width: card.width }} />
+                  <i
+                    className="stats-health-bar grow-bar"
+                    style={{ background: card.bar, width: grown ? (card.width ?? "100%") : 0, transitionDelay: `${index * 55}ms` }}
+                  />
                 ) : (
                   <div className="stats-health-lines">
                     <i className="skel-line" style={{ width: "36%" }} />
@@ -320,8 +353,8 @@ export function StatsPage() {
                       <span className="rate-name">{row.name}</span>
                       <div className="rate-track">
                         {percent == null ? null : (
-                          <i style={{ width: grown ? width : 0, backgroundColor: row.color, transitionDelay: `${index * 55}ms` }}>
-                            <b>{percent}%</b>
+                          <i className="grow-bar" style={{ width: grown ? width : 0, backgroundColor: row.color, transitionDelay: `${index * 55}ms` }}>
+                            <RatePercent percent={percent} run={grown && !seen && !reduce} index={index} />
                           </i>
                         )}
                       </div>
@@ -336,10 +369,17 @@ export function StatsPage() {
         <div className="stats-col">
           <article className="stats-card">
             <h2>工作台</h2>
-            <ActivityPanel days={days} ready={ready} animate={enter} />
+            <ActivityPanel days={Math.min(days, 30)} capped={days > 30 || !endsToday} ready={ready} animate={enter} />
           </article>
           <article className="stats-card">
-            <h2>存储占用</h2>
+            <h2>
+              存储占用
+              {ready ? (
+                <Tooltip title="安装包保留最近 3 个版本，运行包保留最近 30 天，超出的由清理任务回收。">
+                  <InfoCircleOutlined className="stats-info" aria-label="存储说明" />
+                </Tooltip>
+              ) : null}
+            </h2>
             {ready ? (
               <>
                 <p className="stats-figure">2.1 GB</p>
@@ -366,13 +406,26 @@ export function StatsPage() {
                 元素聚类
               </Button>
             </h2>
-            {ready ? <p>窗口内没有失败的 Run</p> : <SkelBody lines={3} />}
+            {!ready ? (
+              <SkelBody lines={3} />
+            ) : FAILS.length === 0 ? (
+              <p>窗口内没有失败的 Run</p>
+            ) : (
+              <ul className="stats-fails">
+                {FAILS.slice(0, 8).map((row) => (
+                  <li key={row.name}>
+                    <span>{row.name}</span>
+                    <b>{row.count} 次</b>
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
         </div>
       </div>
       <Drawer title="指标口径" open={open} onClose={() => setOpen(false)} size="large">
         <Typography.Paragraph>
-          问候卡只留一句。影子、重试、跳过为什么不进比率，以及「没测」为什么不是 0，都在下面。
+          问候卡只留一句。影子、重试、跳过为什么不进比率，以及没有比率时为什么不放徽章，都在下面。
         </Typography.Paragraph>
         <Card size="small" title="不进比率" style={{ marginBottom: 16 }}>
           <Typography.Paragraph>影子运行不回写，不进比率。</Typography.Paragraph>
@@ -385,7 +438,7 @@ export function StatsPage() {
           </Typography.Paragraph>
         </Card>
         <Card size="small" title="没样本时">
-          <Typography.Paragraph style={{ marginBottom: 0 }}>一次运行都没有时显示「没测」，不是 0。</Typography.Paragraph>
+          <Typography.Paragraph style={{ marginBottom: 0 }}>一次运行都没有时不放徽章，也不画填充，不写成 0。</Typography.Paragraph>
         </Card>
       </Drawer>
     </div>

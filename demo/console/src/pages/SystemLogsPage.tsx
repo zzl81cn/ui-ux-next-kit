@@ -5,6 +5,7 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useMemo, useState } from "react";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
 import { useTableScrollY } from "../hooks/useTableScrollY";
+import { useTableDensity } from "../lib/tableDensity";
 import { LOG_ROWS, LOG_TABS, type LogRow } from "../mock/logs";
 import { useThemeMode } from "../theme/ThemeRoot";
 import { showTotal } from "./listFormat";
@@ -35,6 +36,7 @@ export function SystemLogsPage() {
   const [applied, setApplied] = useState<Draft>(emptyDraft);
   const [current, setCurrent] = useState<LogRow | null>(null);
   const { ref, scrollY } = useTableScrollY();
+  const density = useTableDensity();
   const { dark } = useThemeMode();
 
   const rows = useMemo(() => {
@@ -148,6 +150,7 @@ export function SystemLogsPage() {
           search={false}
           cardBordered
           options={false}
+          size={density.size}
           toolBarRender={() => [
             <Button key="export" onClick={exportCsv}>
               导出

@@ -5,9 +5,10 @@ import { successStripe } from "./stripe";
 
 type Day = { day: string; succeeded: number; failed: number; other: number };
 
-function recentDays(count: number): Day[] {
+function recentDays(count: number, end?: string): Day[] {
   const rows: Day[] = [];
-  const start = new Date();
+  const last = end ? new Date(`${end}T00:00:00`) : new Date();
+  const start = new Date(last);
   start.setDate(start.getDate() - (count - 1));
   for (let i = 0; i < count; i += 1) {
     const date = new Date(start);
@@ -24,10 +25,10 @@ function recentDays(count: number): Day[] {
   return rows;
 }
 
-export function TrendChart({ days, enter }: { days: number; enter: boolean }) {
+export function TrendChart({ days, end, enter }: { days: number; end?: string; enter: boolean }) {
   const { dark } = useThemeMode();
   const hostRef = useRef<HTMLDivElement>(null);
-  const rows = useMemo(() => recentDays(days), [days]);
+  const rows = useMemo(() => recentDays(days, end), [days, end]);
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const enterOnce = useRef(enter && !reduce);
 
@@ -124,5 +125,13 @@ export function TrendChart({ days, enter }: { days: number; enter: boolean }) {
     };
   }, [dark, rows]);
 
-  return <div ref={hostRef} className="stats-trend" />;
+  const ok = rows.reduce((sum, row) => sum + row.succeeded, 0);
+  const fail = rows.reduce((sum, row) => sum + row.failed, 0);
+  const other = rows.reduce((sum, row) => sum + row.other, 0);
+  return (
+    <>
+      <span className="sr-only">{`近 ${days} 天：成功 ${ok}、失败 ${fail}、未出结论 ${other}`}</span>
+      <div ref={hostRef} className="stats-trend" aria-hidden="true" />
+    </>
+  );
 }

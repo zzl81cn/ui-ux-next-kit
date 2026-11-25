@@ -2,6 +2,16 @@
 
 Cursor Agent Skill。同事打开本文件。Cursor 读 `SKILL.md`。写界面时的尺寸、文案、顺序和时长以 `references/public-components.md` 为准。
 
+## 效果预览
+
+`demo/console` 是按本规范做的演示（浅色主题，1440×900）。
+
+在线体验：<https://zzl81cn.github.io/ui-ux-next-kit/>（账号 `demo`，密码已预填，验证码照图填；登录后进「数据统计」）。
+
+| 登录页 | 数据统计 |
+| --- | --- |
+| ![登录页](https://raw.githubusercontent.com/zzl81cn/ui-ux-next-kit/main/docs/images/login.png) | ![数据统计](https://raw.githubusercontent.com/zzl81cn/ui-ux-next-kit/main/docs/images/stats.png) |
+
 ## 先看这里
 
 | 谁 | 先打开 |
@@ -48,7 +58,7 @@ cd demo/console && pnpm install && pnpm dev
 
 打开 `http://127.0.0.1:5174/#/login`。账号密码任意非空，验证码看图片上的字符。演示里的产品名是「管理控制台」，字标是「UI」。
 
-演示里这两处还没对齐，不要当成契约：API 执行记录的「详情」没有 760px 抽屉，运行日志也没有 960px 那只；数据统计「口径说明」里仍写着「没测」。
+演示里这两处还没对齐，不要当成契约：API 执行记录的「详情」没有 760px 抽屉，运行日志也没有 960px 那只。「管理机器人」穿梭弹层已按契约做了（执行机页点组内头像进入）。
 
 ## 发布和应用
 

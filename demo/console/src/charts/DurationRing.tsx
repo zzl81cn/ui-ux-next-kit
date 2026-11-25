@@ -1,5 +1,6 @@
 import * as echarts from "echarts";
-import { useEffect, useRef } from "react";
+import { Tooltip } from "antd";
+import { useEffect, useRef, useState } from "react";
 import { useThemeMode } from "../theme/ThemeRoot";
 
 const COLORS = ["#6d5efc", "#3b82f6", "#22c55e", "#ff8a3d", "#ec4899", "#8b919a"];
@@ -18,6 +19,15 @@ const SLICES: Slice[] = [
   { name: "邮件拉取", value: 16 * 60000 },
   { name: "空跑样本", value: 10 * 60000 },
 ];
+
+function LegendName({ name }: { name: string }) {
+  const [cut, setCut] = useState(false);
+  return (
+    <Tooltip title={cut ? name : null}>
+      <span onMouseEnter={(event) => setCut(event.currentTarget.scrollWidth > event.currentTarget.clientWidth)}>{name}</span>
+    </Tooltip>
+  );
+}
 
 export function DurationRing({ enter }: { enter: boolean }) {
   const { dark } = useThemeMode();
@@ -113,7 +123,7 @@ export function DurationRing({ enter }: { enter: boolean }) {
             onMouseLeave={() => chartRef.current?.dispatchAction({ type: "downplay", seriesIndex: 0, name: item.name })}
           >
             <s style={{ background: COLORS[index] }} />
-            <span>{item.name}</span>
+            <LegendName name={item.name} />
             <b>{Math.round((item.value / total) * 100)}%</b>
           </li>
         ))}

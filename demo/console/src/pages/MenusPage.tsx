@@ -18,6 +18,7 @@ import { Button, Drawer, Form, Input, InputNumber, Modal, Radio, Select, Space, 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
 import { useTableScrollY } from "../hooks/useTableScrollY";
+import { useTableDensity } from "../lib/tableDensity";
 import {
   MENU_PAGES,
   countMenus,
@@ -83,6 +84,7 @@ export function MenusPage() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [pending, setPending] = useState("");
   const { ref, scrollY } = useTableScrollY();
+  const density = useTableDensity();
   const view = useMemo(() => filterMenus(tree, applied), [tree, applied]);
 
   useEffect(() => {
@@ -247,7 +249,9 @@ export function MenusPage() {
         dataSource={view}
         search={false}
         cardBordered
-        options={false}
+        options={{ density: true, fullScreen: false, reload: true, setting: false }}
+        size={density.size}
+        onSizeChange={density.onSizeChange}
         pagination={false}
         scroll={{ x: 1068, y: scrollY }}
         expandable={{ expandedRowKeys: expanded, onExpandedRowsChange: (keys) => setExpanded(keys.map(String)) }}

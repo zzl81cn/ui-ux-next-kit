@@ -3,6 +3,7 @@ import { Tag, Typography, message } from "antd";
 import { useMemo, useState } from "react";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
 import { useTableScrollY } from "../hooks/useTableScrollY";
+import { useTableDensity } from "../lib/tableDensity";
 import { showTotal } from "./listFormat";
 
 type UserRow = {
@@ -27,6 +28,7 @@ export function UsersPage() {
   const [draft, setDraft] = useState(EMPTY);
   const [applied, setApplied] = useState(EMPTY);
   const { ref, scrollY } = useTableScrollY();
+  const density = useTableDensity();
   const columns = useMemo<ProColumns<UserRow>[]>(
     () => [
       { title: "用户名", dataIndex: "username", width: 140 },
@@ -99,7 +101,9 @@ export function UsersPage() {
         dataSource={rows}
         search={false}
         cardBordered
-        options={{ density: false, fullScreen: false, reload: true, setting: true }}
+        options={{ density: true, fullScreen: false, reload: true, setting: true }}
+        size={density.size}
+        onSizeChange={density.onSizeChange}
         scroll={{ x: "max-content", y: scrollY }}
         pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal }}
       />

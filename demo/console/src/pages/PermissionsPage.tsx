@@ -3,6 +3,7 @@ import { ProTable, type ProColumns } from "@ant-design/pro-components";
 import { useMemo, useState } from "react";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
 import { useTableScrollY } from "../hooks/useTableScrollY";
+import { useTableDensity } from "../lib/tableDensity";
 import { showTotal } from "./listFormat";
 
 const ROLES = ["查看者", "运维", "开发者", "管理员"] as const;
@@ -25,6 +26,7 @@ export function PermissionsPage() {
   const [draft, setDraft] = useState(EMPTY);
   const [applied, setApplied] = useState(EMPTY);
   const { ref, scrollY } = useTableScrollY();
+  const density = useTableDensity();
   const columns = useMemo<ProColumns<PermRow>[]>(
     () => [
       { title: "分组", dataIndex: "group", width: 120 },
@@ -87,7 +89,9 @@ export function PermissionsPage() {
         dataSource={rows}
         search={false}
         cardBordered
-        options={{ density: false, fullScreen: false, reload: true, setting: true }}
+        options={{ density: true, fullScreen: false, reload: true, setting: true }}
+        size={density.size}
+        onSizeChange={density.onSizeChange}
         scroll={{ x: "max-content", y: scrollY }}
         pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal }}
       />

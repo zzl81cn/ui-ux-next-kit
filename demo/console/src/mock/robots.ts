@@ -12,6 +12,13 @@ export const ROBOTS: RobotRecord[] = [
   { id: "f-ding", name: "丁", online: true, running: false },
   { id: "g-wu", name: "戊", online: true, running: false },
   { id: "h-off", name: "离线庚", online: false, running: false, username: "geng", host_ip: "10.1.0.20", owner: "夜班" },
+  { id: "i-01", name: "执行01", online: true, running: false, username: "bot01", host_ip: "10.1.1.1" },
+  { id: "i-02", name: "执行02", online: true, running: false, username: "bot02", host_ip: "10.1.1.2" },
+  { id: "i-03", name: "执行03", online: false, running: false, username: "bot03", host_ip: "10.1.1.3" },
+  { id: "i-04", name: "执行04", online: true, running: false, username: "bot04", host_ip: "10.1.1.4" },
+  { id: "i-05", name: "执行05", online: true, running: false, username: "bot05", host_ip: "10.1.1.5" },
+  { id: "i-06", name: "执行06", online: false, running: false, username: "bot06", host_ip: "10.1.1.6" },
+  { id: "i-07", name: "执行07", online: true, running: false, username: "bot07", host_ip: "10.1.1.7" },
 ];
 
 export type RobotGroup = { id: string; name: string; robot_ids: string[] };

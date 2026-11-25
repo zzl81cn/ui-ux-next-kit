@@ -3,6 +3,7 @@ import { Tag } from "antd";
 import { useMemo, useState } from "react";
 import { DashFilterField, DashFilterPanel, FilterInput } from "../components/DashFilterPanel";
 import { useTableScrollY } from "../hooks/useTableScrollY";
+import { useTableDensity } from "../lib/tableDensity";
 import { showTotal } from "./listFormat";
 
 type RoleRow = {
@@ -25,6 +26,7 @@ export function RolesPage() {
   const [draft, setDraft] = useState("");
   const [applied, setApplied] = useState("");
   const { ref, scrollY } = useTableScrollY();
+  const density = useTableDensity();
   const columns = useMemo<ProColumns<RoleRow>[]>(
     () => [
       { title: "角色", dataIndex: "label", width: 120, render: (_, row) => <Tag>{row.label}</Tag> },
@@ -61,7 +63,9 @@ export function RolesPage() {
         dataSource={rows}
         search={false}
         cardBordered
-        options={{ density: false, fullScreen: false, reload: true, setting: true }}
+        options={{ density: true, fullScreen: false, reload: true, setting: true }}
+        size={density.size}
+        onSizeChange={density.onSizeChange}
         scroll={{ x: "max-content", y: scrollY }}
         pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal }}
       />

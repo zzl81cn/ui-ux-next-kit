@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
 import { listExecutions, type Execution, type ExecutionStatus } from "../mock/data";
 import { useTableScrollY } from "../hooks/useTableScrollY";
+import { useTableDensity } from "../lib/tableDensity";
 
 const RESULT_OPTIONS = [
   { value: "running", label: "运行中" },
@@ -31,11 +32,13 @@ const COLUMN_WIDTH = {
   queue_name: 220,
   mis_task_id: 110,
   robot_name: 130,
-  status: 96,
-  created_at: 170,
-  started_at: 170,
-  finished_at: 170,
+  status: 128,
+  created_at: 192,
+  started_at: 192,
+  finished_at: 192,
 } as const;
+
+const FIXED_WIDTH = { duration: 100, params: 240, actions: 168 } as const;
 
 const MIN_COL_W = 80;
 
@@ -112,14 +115,33 @@ function ApiExecutions() {
   const [applied, setApplied] = useState<Draft>(EMPTY_DRAFT);
   const [widths, setWidths] = useState<Partial<Record<ColKey, number>>>({});
   const { ref, scrollY } = useTableScrollY();
+  const density = useTableDensity();
+  const [hidden, setHidden] = useState<Record<string, boolean>>({ queue_name: true });
   const widthOf = (key: ColKey) => widths[key] ?? COLUMN_WIDTH[key];
   const resize = (key: ColKey) => (next: number) => setWidths((prev) => ({ ...prev, [key]: next }));
   const headerOf = (key: ColKey) => () =>
     ({ resizeWidth: widthOf(key), onResizeWidth: resize(key) }) as HTMLAttributes<HTMLTableCellElement>;
 
+  const tableWidth =
+    (Object.keys(COLUMN_WIDTH) as ColKey[]).reduce((sum, key) => (hidden[key] ? sum : sum + widthOf(key)), 0) +
+    FIXED_WIDTH.duration +
+    FIXED_WIDTH.params +
+    FIXED_WIDTH.actions;
+
   const columns = useMemo<ProColumns<Execution>[]>(
     () => [
-      { title: "应用名称", dataIndex: "title", width: widthOf("title"), ellipsis: true, fixed: "left", onHeaderCell: headerOf("title") },
+      {
+        title: "应用名称",
+        dataIndex: "title",
+        width: widthOf("title"),
+        fixed: "left",
+        onHeaderCell: headerOf("title"),
+        render: (_, row) => (
+          <span className="console-cell-clip" title={row.title}>
+            {row.title}
+          </span>
+        ),
+      },
       {
         title: "队列项",
         dataIndex: "queue_name",
@@ -152,18 +174,18 @@ function ApiExecutions() {
       { title: "触发时间", dataIndex: "created_at", width: widthOf("created_at"), onHeaderCell: headerOf("created_at") },
       { title: "执行时间", dataIndex: "started_at", width: widthOf("started_at"), onHeaderCell: headerOf("started_at"), render: (_, row) => row.started_at ?? "—" },
       { title: "结束时间", dataIndex: "finished_at", width: widthOf("finished_at"), onHeaderCell: headerOf("finished_at"), render: (_, row) => row.finished_at ?? "—" },
-      { title: "执行时长", width: 100, render: () => "—" },
+      { title: "执行时长", width: FIXED_WIDTH.duration, render: () => "—" },
       {
         title: "请求参数",
         dataIndex: "queue_info",
-        width: 240,
+        width: FIXED_WIDTH.params,
         ellipsis: true,
         render: (_, row) => row.queue_info ?? "—",
       },
       {
         title: "操作",
         valueType: "option",
-        width: 168,
+        width: FIXED_WIDTH.actions,
         fixed: "right",
         render: (_, row) => (
           <Space size={16} className="console-row-actions">
@@ -224,12 +246,15 @@ function ApiExecutions() {
         headerTitle="API执行记录"
         rowKey="id"
         columns={columns}
-        columnsState={{ defaultValue: { queue_name: { show: false } } }}
+        columnsState={{
+          defaultValue: { queue_name: { show: false } },
+          onChange: (map) => setHidden(Object.fromEntries(Object.entries(map).map(([key, value]) => [key, value.show === false]))),
+        }}
         search={false}
         cardBordered
         components={{ header: { cell: ResizableTh } }}
         options={{
-          density: false,
+          density: true,
           fullScreen: false,
           setting: true,
           reload: (_event, action) => {
@@ -250,7 +275,10 @@ function ApiExecutions() {
           });
           return { data: items, success: true, total };
         }}
-        scroll={{ x: "max-content", y: scrollY }}
+        size={density.size}
+        onSizeChange={density.onSizeChange}
+        tableLayout="fixed"
+        scroll={{ x: tableWidth, y: scrollY }}
         pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal }}
         locale={{
           emptyText: (

@@ -1,5 +1,5 @@
 import { CheckOutlined } from "@ant-design/icons";
-import { Empty, Tabs, Typography } from "antd";
+import { Button, Empty, Switch, Tabs, Typography } from "antd";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -233,12 +233,12 @@ function ActivityTotal({ total, windowKey }: { total: number; windowKey: number 
   return <div className="activity-num">{shown}</div>;
 }
 
-function ActivityRows({ rows, showActor }: { rows: Recent[]; showActor?: boolean }) {
+function ActivityRows({ rows, showActor, zebra }: { rows: Recent[]; showActor?: boolean; zebra?: boolean }) {
   if (rows.length === 0) {
     return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这段时间还没有操作" />;
   }
   return (
-    <ul className="activity-log">
+    <ul className={zebra ? "activity-log is-zebra" : "activity-log"}>
       {rows.map((item) => {
         const at = parseIso(item.at.slice(0, 10));
         const clock = item.at.slice(11, 16);
@@ -268,8 +268,10 @@ function ActivityRows({ rows, showActor }: { rows: Recent[]; showActor?: boolean
   );
 }
 
-function MyActivity({ days, ready }: { days: number; ready: boolean }) {
+function MyActivity({ days, capped, ready }: { days: number; capped?: boolean; ready: boolean }) {
   const { data, error, loading } = useActivity(days, ready);
+  const [replayKey, setReplayKey] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   if (!ready || (loading && !data)) {
     return (
@@ -286,6 +288,7 @@ function MyActivity({ days, ready }: { days: number; ready: boolean }) {
   const series = data.series;
   const signature = series.map((day) => `${day.date}:${day.count}`).join("|");
   const anchor = series.length > 0 ? parseIso(series[series.length - 1].date) : null;
+  const todayIso = isoOf(shanghaiToday());
   let checkIndex = 0;
 
   return (
@@ -329,22 +332,24 @@ function MyActivity({ days, ready }: { days: number; ready: boolean }) {
                     const on = cell.count > 0;
                     const index = on ? checkIndex++ : undefined;
                     const otherMonth = anchor != null && (when.getFullYear() !== anchor.getFullYear() || when.getMonth() !== anchor.getMonth());
-                    const className = otherMonth
+                    const today = cell.date === todayIso;
+                    const base = otherMonth
                       ? on
                         ? "activity-day is-on is-other-month"
                         : "activity-day is-other-month"
                       : on
                         ? "activity-day is-on"
                         : "activity-day";
+                    const className = today ? `${base} is-today` : base;
                     return (
                       <span
                         key={cell.date}
                         className={className}
                         tabIndex={0}
                         style={index !== undefined ? ({ "--i": index } as CSSProperties) : undefined}
-                        aria-label={on ? `${label}，${cell.count} 次` : label}
+                        aria-label={`${today ? "今天，" : ""}${on ? `${label}，${cell.count} 次` : label}`}
                       >
-                        {on ? <CheckOutlined /> : null}
+                        {on && !today ? <CheckOutlined /> : null}
                         <DayBurst day={`${when.getDate()}`} />
                       </span>
                     );
@@ -359,14 +364,24 @@ function MyActivity({ days, ready }: { days: number; ready: boolean }) {
         <Typography.Text strong>每日操作量</Typography.Text>
         <div className="activity-chart-sub">
           近 {data.days} 天有 {data.activeDays} 天活跃，单日最高 {data.peak} 次
+          {capped ? <div>我的活动固定看今天往前最近 {data.days} 天（最多 30 天），不跟着所选日期。</div> : null}
         </div>
-        <ActivityDailyBars series={series} peak={data.peak} />
+        <ActivityDailyBars series={series} peak={data.peak} replayKey={replayKey} reduceMotion={reduceMotion} />
+        <div className="activity-chart-demo">
+          <Button size="small" type="link" onClick={() => setReplayKey((key) => key + 1)}>
+            重播
+          </Button>
+          <label>
+            减少动效
+            <Switch size="small" checked={reduceMotion} onChange={setReduceMotion} aria-label="模拟减少动效" />
+          </label>
+        </div>
       </div>
       <div className="activity-recent-head">
         <Typography.Text strong>最近动态</Typography.Text>
         <Typography.Text type="secondary">最新 4 条</Typography.Text>
       </div>
-      <ActivityRows rows={data.recent.slice(0, 4)} />
+      <ActivityRows rows={data.recent.slice(0, 4)} zebra />
     </>
   );
 }
@@ -376,7 +391,7 @@ const QUICK_LINKS = [
   { title: "数据统计", description: "跑批概况和活动", path: "/stats" },
 ];
 
-export function ActivityPanel({ days, ready, animate }: { days: number; ready: boolean; animate: boolean }) {
+export function ActivityPanel({ days, capped, ready, animate }: { days: number; capped?: boolean; ready: boolean; animate: boolean }) {
   void animate;
   return (
     <Tabs
@@ -391,7 +406,7 @@ export function ActivityPanel({ days, ready, animate }: { days: number; ready: b
               className="activity-subtabs"
               size="small"
               items={[
-                { key: "mine", label: "我的活动", children: <MyActivity days={days} ready={ready} /> },
+                { key: "mine", label: "我的活动", children: <MyActivity days={days} capped={capped} ready={ready} /> },
                 {
                   key: "audit",
                   label: "操作审计",

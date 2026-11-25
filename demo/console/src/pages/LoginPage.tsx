@@ -2,7 +2,7 @@ import { Button, Form, Input, Space, Typography, message, type InputRef } from "
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import feishuMark from "../assets/feishu-logo.png";
-import { PRODUCT_MARK, PRODUCT_NAME } from "../brand";
+import { PRODUCT_LOGO, PRODUCT_NAME } from "../brand";
 import { loadCaptchaSettings } from "../lib/consolePrefs";
 import { useSiteBrand } from "../lib/siteBrand";
 import { issueCaptcha, login } from "../mock/data";
@@ -78,7 +78,7 @@ export function LoginPage() {
         {brand.logo_url ? (
           <img src={brand.logo_url} alt="" style={{ height: 40, width: "auto" }} />
         ) : (
-          <div className="console-login-mark">{PRODUCT_MARK}</div>
+          <img src={PRODUCT_LOGO} alt="" style={{ height: 40, width: 40, display: "block" }} />
         )}
         <Typography.Title level={3} className="console-login-title">
           {brand.site_name || PRODUCT_NAME}

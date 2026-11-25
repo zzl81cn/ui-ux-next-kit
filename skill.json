@@ -2,14 +2,15 @@
   "name": "ui-ux-next-kit",
   "displayName": "UI/UX Next Kit",
   "description": "Extensible UI/UX Agent Skill kit. Restoring a page starts at references/public-components.md and that section's checklist. Audits stay read-only and write YYYYMMDD-[project]UI-UX审计报告.md at the project root.",
-  "version": "0.1.0",
+  "version": "0.0.2",
   "author": "UI/UX Next Kit",
   "license": "MIT",
   "keywords": ["ui", "ux", "audit", "kit", "antd", "react", "design-system", "agent-skill", "cursor"],
   "platforms": ["cursor", "claude", "codex"],
   "aliases": ["ui-ux-next-audit"],
   "install": {
-    "cursor": "Copy or symlink this repo to .cursor/skills/ui-ux-next-kit (or ~/.cursor/skills/ui-ux-next-kit)",
-    "note": "Agent loads SKILL.md when the user asks for a UI/UX audit (alias: ui-ux-next-audit)."
+    "npm": "npm install ui-ux-next-kit",
+    "cursor": "postinstall links the package to .cursor/skills/ui-ux-next-kit and the two rules into .cursor/rules. npm update refreshes both.",
+    "note": "Agent loads SKILL.md when the user asks to restore a page or run a UI/UX audit."
   }
 }

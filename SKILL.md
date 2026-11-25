@@ -80,6 +80,8 @@ bash <skill-root>/scripts/run-all.sh
 - 筛选项是否覆盖列表里已出现的值
 - 宽表第一屏是否包含决策所需列；仅靠颜色的状态有无图例
 
+用户要 Lighthouse 时另出一份只读报告，不改产品代码。一次必须带上性能、可访问性、最佳实践、SEO；当次还返回别的类别，一并写入。每类写总分和未通过项的名称、影响、地址。登录挡住时写明停在登录，不编分数。报告落在目标项目根目录：`YYYYMMDD-[项目名]控制台Lighthouse报告.md`。WCAG 清单是后期核对，不拿它当当前改动单。
+
 ### 3. 输出报告
 
 严格按 `templates/report-template.md` 写完整 Markdown，并**落盘**。分级与置信度见 `references/audit-dimensions.md`。

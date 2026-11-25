@@ -1,0 +1,41 @@
+{
+  "name": "ui-ux-next-kit",
+  "version": "0.0.2",
+  "description": "UI/UX Next Kit. Installs the Cursor skill and project rules, and updates them with npm update.",
+  "license": "MIT",
+  "bin": {
+    "ui-ux-next-kit": "./bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "SKILL.md",
+    "skill.json",
+    "README.md",
+    "LICENSE",
+    "references",
+    "scripts",
+    "templates",
+    "examples"
+  ],
+  "scripts": {
+    "postinstall": "node bin/cli.js install --from-postinstall"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zzl81cn/ui-ux-next-kit.git"
+  },
+  "keywords": [
+    "ui",
+    "ux",
+    "cursor",
+    "agent-skill",
+    "antd",
+    "design-system"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

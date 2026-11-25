@@ -10,20 +10,23 @@ Cursor Agent Skill。同事打开本文件。Cursor 读 `SKILL.md`。写界面�
 | Cursor | `SKILL.md`（放到 `.cursor/skills/ui-ux-next-kit` 后，说到还原或审计就会读） |
 | 写某一页 | `references/public-components.md` 里那一节和它的验收清单 |
 
-在要写界面的项目根目录装上：
+在要写界面的项目根目录安装：
 
 ```bash
-mkdir -p .cursor/skills .cursor/rules
-ln -s /绝对路径/ui-ux-next-kit .cursor/skills/ui-ux-next-kit
-cp /绝对路径/ui-ux-next-kit/templates/cursor-rules/frontend-stack.mdc .cursor/rules/
-cp /绝对路径/ui-ux-next-kit/templates/cursor-rules/figma-handoff.mdc .cursor/rules/
+npm install ui-ux-next-kit
 ```
 
-个人级把软链改到 `~/.cursor/skills/ui-ux-next-kit`。团队仓库：
+安装后，技能挂在 `.cursor/skills/ui-ux-next-kit`，两条规则挂在 `.cursor/rules/`。规范改版后发布新版本，业务项目执行 `npm update ui-ux-next-kit` 即可。所有项目共用时：
 
 ```bash
-git submodule add <your-git-url> .cursor/skills/ui-ux-next-kit
+npm install -g ui-ux-next-kit
 ```
+
+全局安装只挂技能到 `~/.cursor/skills/`。项目规则仍随各项目的 `npm install` 写入。
+
+同事在业务项目里执行上面的安装后，Cursor 会读到契约和规则。说到还原某一页或做审计时，读 `SKILL.md` 和 `references/public-components.md`。这和把规范交给同事用是同一件事。
+
+`npm install` 装不到 `demo/console`。要打开可运行的演示，或让 Cursor 直接读演示源码，用本 Git 仓库。包里只有契约、规则、脚本和示例页。
 
 还原一页时对 Agent 说：
 
@@ -47,7 +50,39 @@ cd demo/console && pnpm install && pnpm dev
 
 演示里这两处还没对齐，不要当成契约：API 执行记录的「详情」没有 760px 抽屉，运行日志也没有 960px 那只；数据统计「口径说明」里仍写着「没测」。
 
-打包这个仓库发给同事即可。压缩时排除 `node_modules`、`dist`、`.DS_Store`。未提交的改动不要用 `git archive`，那种包里没有工作区里还没提交的文件。
+## 发布和应用
+
+当前发布版本是 `0.0.2`，页面是 https://www.npmjs.com/package/ui-ux-next-kit 。`latest` 指向这一版。注册表上的 `0.0.0-stage` 是 npm 的占位版本，不要安装，也不要删除。
+
+Cursor 读的仍是 `SKILL.md`。npm 包负责把这份目录挂进项目，并让后续版本能被 `npm update` 拉下来。包里有契约、脚本、规则和示例。`demo/` 留在 Git 仓库，不进 npm 包。同事要看可运行的演示，克隆仓库后按下面的「演示」一节启动。
+
+业务项目：
+
+```bash
+npm install ui-ux-next-kit
+npm update ui-ux-next-kit
+```
+
+发版时把 `package.json` 和 `skill.json` 的版本一起加一档，再执行 `npm publish`。两条规则是软链。要改某一条时，先删掉软链再放自己的文件，安装器看到普通文件就不会覆盖。
+
+没有 `package.json` 的项目仍可用公共安装器，从 GitHub 拉取：
+
+```bash
+npx skills add zzl81cn/ui-ux-next-kit --skill ui-ux-next-kit --agent cursor
+```
+
+需要把版本钉死在某次提交时，继续用 Git 标签加 submodule：
+
+```bash
+git submodule add <git-url> .cursor/skills/ui-ux-next-kit
+git -C .cursor/skills/ui-ux-next-kit checkout <tag>
+mkdir -p .cursor/rules
+cp .cursor/skills/ui-ux-next-kit/templates/cursor-rules/*.mdc .cursor/rules/
+```
+
+本机试用用软链，指到这份检出。升级时在 skill 仓库拉新标签，业务仓库更新 submodule 指针。压缩包只用于还没有 Git 的一次性传递，排除 `node_modules`、`dist`、`.DS_Store`。
+
+技能正文不写公司名、产品名和镜像仓库地址。范本产品名留在来源仓库。本套件的站名是「管理控制台」，字标是「UI」。
 
 把《UI/UX 审计套件》打包成开源、可一键安装的 **Agent Skill Kit**：对前端项目做只读 UI/UX 审计，在**项目根目录**落盘结构化报告，并输出可直接交给修复 Agent 的分组 Prompt。
 

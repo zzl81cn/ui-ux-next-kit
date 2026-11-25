@@ -1,6 +1,6 @@
 {
   "name": "ui-ux-next-kit",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "UI/UX Next Kit. Installs the Cursor skill and project rules, and updates them with npm update.",
   "license": "MIT",
   "bin": {

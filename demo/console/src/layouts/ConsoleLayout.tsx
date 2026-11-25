@@ -1,7 +1,6 @@
 import {
   ApartmentOutlined,
   AuditOutlined,
-  BellOutlined,
   DashboardOutlined,
   DesktopOutlined,
   DownOutlined,
@@ -24,6 +23,7 @@ import { Avatar, Breadcrumb, Drawer, Dropdown, Radio, Tag, Tooltip } from "antd"
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { PRODUCT_LOGO } from "../brand";
+import { NotificationBell } from "../components/NotificationBell";
 import { clearSession } from "../lib/session";
 import { brandTitle, headerLogoSrc, useSiteBrand } from "../lib/siteBrand";
 import { getMenuTree, subscribeMenus, visibleMenus, type MenuNode } from "../mock/menus";
@@ -206,11 +206,7 @@ export function ConsoleLayout() {
             },
       }}
       actionsRender={() => {
-        const bell = (
-          <span key="bell" className="console-theme-toggle" role="img" aria-label="消息通知">
-            <BellOutlined />
-          </span>
-        );
+        const bell = <NotificationBell key="bell" mobile={mobile} />;
         if (mobile) return [bell];
         return [
           bell,

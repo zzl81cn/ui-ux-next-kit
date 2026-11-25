@@ -1,9 +1,12 @@
-import { CheckOutlined } from "@ant-design/icons";
+import { CheckOutlined, DesktopOutlined, HistoryOutlined, ThunderboltOutlined, UnorderedListOutlined } from "@ant-design/icons";
 import { Button, Empty, Switch, Tabs, Typography } from "antd";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ActivityDailyBars } from "../charts/ActivityDailyBars";
+import { AUDIT_LOG_PATH, ADVANCED_PATH, QUEUE_PATH, RECORDS_PATH, WORKERS_PATH } from "../lib/statsLinks";
+import { useRobots } from "../mock/robots";
+import { TODO_FAILED } from "../mock/stats";
 
 const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -387,12 +390,85 @@ function MyActivity({ days, capped, ready }: { days: number; capped?: boolean; r
 }
 
 const QUICK_LINKS = [
-  { title: "执行记录", description: "一次派出的过程和日志", path: "/jobs" },
-  { title: "数据统计", description: "跑批概况和活动", path: "/stats" },
+  { title: "工作队列", description: "排队、失败、正在跑的行", path: QUEUE_PATH, icon: <UnorderedListOutlined /> },
+  { title: "执行记录", description: "一次派出的过程和日志", path: RECORDS_PATH, icon: <HistoryOutlined /> },
+  { title: "高级任务", description: "应用、运行包和开始跑批", path: ADVANCED_PATH, icon: <ThunderboltOutlined /> },
+  { title: "执行机", description: "在线机器人和心跳", path: WORKERS_PATH, icon: <DesktopOutlined /> },
 ];
 
-export function ActivityPanel({ days, capped, ready, animate }: { days: number; capped?: boolean; ready: boolean; animate: boolean }) {
+type ListState = "ok" | "empty" | "error";
+
+/** 全站操作审计的示例行：操作者 · 路径 */
+function auditRows(): Recent[] {
+  const end = shanghaiToday();
+  const rows: { ago: number; at: string; actor: string; title: string; path: string; method: string; kind: "auth" | "change"; action: string }[] = [
+    { ago: 0, at: "10:21", actor: "demo", title: "保存执行记录", path: "/jobs", method: "PUT", kind: "change", action: "update" },
+    { ago: 0, at: "09:12", actor: "zhang.san", title: "登录", path: "/login", method: "POST", kind: "auth", action: "login" },
+    { ago: 0, at: "08:47", actor: "li.si", title: "修改角色权限", path: "/settings/roles", method: "PUT", kind: "change", action: "update" },
+    { ago: 1, at: "17:30", actor: "demo", title: "新建菜单", path: "/system/menus", method: "POST", kind: "change", action: "create" },
+    { ago: 1, at: "16:02", actor: "wang.wu", title: "登录", path: "/login", method: "POST", kind: "auth", action: "login" },
+    { ago: 2, at: "11:05", actor: "demo", title: "停用用户", path: "/settings/users", method: "PUT", kind: "change", action: "disable" },
+  ];
+  return rows.map((row) => ({ ...row, at: `${isoOf(addDays(end, -row.ago))}T${row.at}:00` }));
+}
+
+function AuditPanel({ state, ready }: { state: ListState; ready: boolean }) {
+  const rows = state === "ok" ? auditRows().slice(0, 8) : [];
+  if (!ready) {
+    return (
+      <div className="skel-body" aria-hidden="true">
+        {Array.from({ length: 4 }, (_, index) => (
+          <i key={index} className="skel-line" style={{ width: ["100%", "72%", "88%", "56%"][index] }} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="activity-recent-head" style={{ margin: "0 0 2px" }}>
+        <Typography.Text strong>全站操作审计</Typography.Text>
+        <Link to={AUDIT_LOG_PATH}>全部</Link>
+      </div>
+      {state === "error" ? (
+        <Typography.Text type="danger">操作审计读取失败：日志服务没有响应。</Typography.Text>
+      ) : (
+        <>
+          {rows.length > 0 ? <div className="activity-chart-sub" style={{ margin: "0 0 10px" }}>最近 {rows.length} 条后台行为</div> : null}
+          <ActivityRows rows={rows} showActor zebra />
+        </>
+      )}
+    </>
+  );
+}
+
+export function ActivityPanel({
+  days,
+  capped,
+  ready,
+  animate,
+  auditState = "ok",
+  todoState = "ok",
+}: {
+  days: number;
+  capped?: boolean;
+  ready: boolean;
+  animate: boolean;
+  auditState?: ListState;
+  todoState?: ListState;
+}) {
   void animate;
+  const { robots } = useRobots();
+  // 待办 = 最近的失败执行最多 3 条（点去执行记录）+ 离线执行机最多 2 条（点去执行机）
+  const todos =
+    todoState === "empty"
+      ? []
+      : [
+          ...TODO_FAILED.slice(0, 3).map((row) => ({ key: row.id, title: row.app, sub: row.reason || "执行失败", to: RECORDS_PATH })),
+          ...robots
+            .filter((robot) => !robot.online)
+            .slice(0, 2)
+            .map((robot) => ({ key: robot.id, title: robot.name, sub: "执行机离线", to: WORKERS_PATH })),
+        ];
   return (
     <Tabs
       className="activity-tabs"
@@ -407,11 +483,7 @@ export function ActivityPanel({ days, capped, ready, animate }: { days: number; 
               size="small"
               items={[
                 { key: "mine", label: "我的活动", children: <MyActivity days={days} capped={capped} ready={ready} /> },
-                {
-                  key: "audit",
-                  label: "操作审计",
-                  children: <ActivityRows rows={buildSummary(days).recent.slice(0, 4)} showActor />,
-                },
+                { key: "audit", label: "操作审计", children: <AuditPanel state={auditState} ready={ready} /> },
               ]}
             />
           ),
@@ -423,9 +495,12 @@ export function ActivityPanel({ days, capped, ready, animate }: { days: number; 
             <ul className="activity-log">
               {QUICK_LINKS.map((link) => (
                 <li className="activity-log__item" key={link.path}>
-                  <Link className="activity-log__body" to={link.path}>
-                    <div className="activity-log__title">{link.title}</div>
-                    <div className="activity-log__sub">{link.description}</div>
+                  <Link className="activity-log__link" to={link.path}>
+                    <span className="activity-log__date activity-log__icon">{link.icon}</span>
+                    <span className="activity-log__body">
+                      <div className="activity-log__title">{link.title}</div>
+                      <div className="activity-log__sub">{link.description}</div>
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -434,17 +509,22 @@ export function ActivityPanel({ days, capped, ready, animate }: { days: number; 
         },
         {
           key: "todo",
-          label: "待办",
-          children: (
-            <ul className="activity-log">
-              <li className="activity-log__item">
-                <Link className="activity-log__body" to="/jobs">
-                  <div className="activity-log__title">发票同步</div>
-                  <div className="activity-log__sub">执行机-01 正在跑</div>
-                </Link>
-              </li>
-            </ul>
-          ),
+          label: todos.length > 0 ? `待办 (${todos.length})` : "待办",
+          children:
+            todos.length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有要处理的失败或离线机器" />
+            ) : (
+              <ul className="activity-log">
+                {todos.map((todo) => (
+                  <li className="activity-log__item" key={todo.key}>
+                    <Link className="activity-log__body" to={todo.to}>
+                      <div className="activity-log__title">{todo.title}</div>
+                      <div className="activity-log__sub">{todo.sub}</div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ),
         },
       ]}
     />

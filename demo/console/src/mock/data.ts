@@ -104,6 +104,53 @@ const executions: Execution[] = [
   },
 ];
 
+// 演示数据：在上面 5 条之外再生成 35 条，让筛选、分页和滚动都有东西可看
+(() => {
+  const apps = [
+    { title: "发票同步", key: "invoice-sync", mis: 4412 },
+    { title: "库存推送", key: "stock-push", mis: 2201 },
+    { title: "邮件拉取", key: "mail-fetch", mis: 18 },
+    { title: "对账回写", key: "bill-writeback", mis: 3305 },
+    { title: "报销审批", key: "expense-approve", mis: 5120 },
+    { title: "客户回款核销", key: "receipt-match", mis: 6048 },
+  ];
+  const robots = [
+    { name: "执行机-01", id: "r-01" },
+    { name: "执行机-02", id: "r-02" },
+    { name: "执行机-03", id: "r-03" },
+    { name: "执行机-04", id: "r-04" },
+  ];
+  const statuses: ExecutionStatus[] = ["succeeded", "succeeded", "failed", "succeeded", "stopped", "succeeded", "running", "pending"];
+  const base = Date.UTC(2026, 10, 19, 6, 0, 0);
+  for (let i = 0; i < 35; i += 1) {
+    const app = apps[i % apps.length];
+    const robot = robots[(i * 3 + 1) % robots.length];
+    const status = statuses[i % statuses.length];
+    const created = base - i * 5.5 * 3600_000;
+    const started = status === "pending" ? null : created + 60_000;
+    const finished = status === "succeeded" || status === "failed" || status === "stopped" ? (started as number) + (3 + (i % 9) * 4) * 60_000 : null;
+    const iso = (t: number | null) => (t == null ? null : new Date(t).toISOString().replace(".000", ""));
+    const mis = app.mis + (i % 3);
+    executions.push({
+      id: 1700 - i - 1,
+      job_id: 60 + (i % 6),
+      config_key: app.key,
+      title: app.title,
+      queue_name: `${app.title}，任务 ${mis}`,
+      mis_task_id: i % 7 === 3 ? null : mis,
+      robot_name: status === "pending" ? null : robot.name,
+      robot_id: status === "pending" ? null : robot.id,
+      status,
+      created_at: iso(created) as string,
+      started_at: iso(started),
+      finished_at: iso(finished),
+      queue_info: i % 5 === 2 ? null : `{"mis_id":${mis},"env":"${i % 2 ? "prod" : "test"}"}`,
+    });
+  }
+})();
+
+export const ROBOT_OPTIONS = ["执行机-01", "执行机-02", "执行机-03", "执行机-04"].map((name) => ({ value: name, label: name }));
+
 type Captcha = { captcha_id: string; image: string; code: string };
 
 let captcha: Captcha = drawCaptcha(loadCaptchaSettings());
@@ -166,6 +213,12 @@ export function listExecutions(query: {
   title?: string;
   result?: string;
   misTaskId?: string;
+  robot?: string;
+  queue?: string;
+  params?: string;
+  /** 触发日期范围，YYYY-MM-DD，含两端 */
+  from?: string;
+  to?: string;
   offset: number;
   limit: number;
 }): { items: Execution[]; total: number } {
@@ -175,8 +228,18 @@ export function listExecutions(query: {
     if (title && !row.title.toLowerCase().includes(title)) return false;
     if (query.result && row.status !== query.result) return false;
     if (mis && !String(row.mis_task_id ?? "").includes(mis)) return false;
+    if (query.robot && row.robot_name !== query.robot) return false;
+    const queue = query.queue?.trim().toLowerCase() ?? "";
+    if (queue && !row.queue_name.toLowerCase().includes(queue)) return false;
+    const params = query.params?.trim().toLowerCase() ?? "";
+    if (params && !(row.queue_info ?? "").toLowerCase().includes(params)) return false;
+    const day = new Date(row.created_at);
+    const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    if (query.from && key < query.from) return false;
+    if (query.to && key > query.to) return false;
     return true;
   });
+  filtered.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return { items: filtered.slice(query.offset, query.offset + query.limit), total: filtered.length };
 }
 

@@ -1,9 +1,10 @@
 import { ProTable, type ProColumns } from "@ant-design/pro-components";
-import { Empty, Popconfirm, Space, Tabs, Tag, Typography, message } from "antd";
+import { DatePicker, Empty, Popconfirm, Space, Tabs, Tag, Typography, message } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
 import { useMemo, useState, type HTMLAttributes, type MouseEvent as ReactMouseEvent, type ThHTMLAttributes } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
-import { listExecutions, type Execution, type ExecutionStatus } from "../mock/data";
+import { listExecutions, ROBOT_OPTIONS, type Execution, type ExecutionStatus } from "../mock/data";
 import { useTableScrollY } from "../hooks/useTableScrollY";
 import { useTableDensity } from "../lib/tableDensity";
 
@@ -23,9 +24,27 @@ const STATUS: Record<ExecutionStatus, { text: string; color: string }> = {
   stopped: { text: "已停止", color: "default" },
 };
 
-type Draft = { title: string; result: string; misTaskId: string };
+type Draft = {
+  title: string;
+  result: string;
+  misTaskId: string;
+  robot: string;
+  queue: string;
+  params: string;
+  range: [Dayjs, Dayjs] | null;
+};
 
-const EMPTY_DRAFT: Draft = { title: "", result: "", misTaskId: "" };
+const EMPTY_DRAFT: Draft = { title: "", result: "", misTaskId: "", robot: "", queue: "", params: "", range: null };
+
+const fmtTime = (value: string | null) => (value ? dayjs(value).format("YYYY-MM-DD HH:mm:ss") : "—");
+
+function fmtSpan(start: string | null, end: string | null) {
+  if (!start || !end) return "—";
+  const seconds = Math.max(0, dayjs(end).diff(dayjs(start), "second"));
+  if (seconds < 60) return `${seconds} 秒`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
+  return `${Math.floor(seconds / 3600)} 时 ${Math.floor((seconds % 3600) / 60)} 分`;
+}
 
 const COLUMN_WIDTH = {
   title: 180,
@@ -83,7 +102,7 @@ function showTotal(total: number, range: [number, number]) {
 
 export function JobsPage() {
   const [params, setParams] = useSearchParams();
-  const record = params.get("record") ?? "regular";
+  const record = params.get("record") ?? "api";
 
   return (
     <div className="console-page">
@@ -96,23 +115,28 @@ export function JobsPage() {
           setParams(next, { replace: true });
         }}
         items={[
-          { key: "regular", label: "常规任务记录" },
-          { key: "advanced", label: "高级任务记录" },
-          { key: "api", label: "API执行记录" },
+          { key: "api", label: "全部执行" },
+          { key: "regular", label: "计划执行" },
+          { key: "advanced", label: "手动执行" },
         ]}
       />
       {record === "api" ? (
         <ApiExecutions />
       ) : (
-        <Empty description={record === "advanced" ? "这一页签留给高级任务。演示只填了 API 执行记录。" : "这一页签留给常规任务。演示只填了 API 执行记录。"} />
+        <Empty description={`这一页签留给「${record === "advanced" ? "手动执行" : "计划执行"}」。演示只填了「全部执行」。`} />
       )}
     </div>
   );
 }
 
 function ApiExecutions() {
-  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
-  const [applied, setApplied] = useState<Draft>(EMPTY_DRAFT);
+  // 数据统计页的链接可以带 result=running / failed，进来就筛好
+  const initial = useMemo<Draft>(() => {
+    const result = new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("result");
+    return RESULT_OPTIONS.some((item) => item.value === result) ? { ...EMPTY_DRAFT, result: result as string } : EMPTY_DRAFT;
+  }, []);
+  const [draft, setDraft] = useState<Draft>(initial);
+  const [applied, setApplied] = useState<Draft>(initial);
   const [widths, setWidths] = useState<Partial<Record<ColKey, number>>>({});
   const { ref, scrollY } = useTableScrollY();
   const density = useTableDensity();
@@ -171,10 +195,10 @@ function ApiExecutions() {
         onHeaderCell: headerOf("status"),
         render: (_, row) => <Tag color={STATUS[row.status].color}>{STATUS[row.status].text}</Tag>,
       },
-      { title: "触发时间", dataIndex: "created_at", width: widthOf("created_at"), onHeaderCell: headerOf("created_at") },
-      { title: "执行时间", dataIndex: "started_at", width: widthOf("started_at"), onHeaderCell: headerOf("started_at"), render: (_, row) => row.started_at ?? "—" },
-      { title: "结束时间", dataIndex: "finished_at", width: widthOf("finished_at"), onHeaderCell: headerOf("finished_at"), render: (_, row) => row.finished_at ?? "—" },
-      { title: "执行时长", width: FIXED_WIDTH.duration, render: () => "—" },
+      { title: "触发时间", dataIndex: "created_at", width: widthOf("created_at"), onHeaderCell: headerOf("created_at"), render: (_, row) => fmtTime(row.created_at) },
+      { title: "执行时间", dataIndex: "started_at", width: widthOf("started_at"), onHeaderCell: headerOf("started_at"), render: (_, row) => fmtTime(row.started_at) },
+      { title: "结束时间", dataIndex: "finished_at", width: widthOf("finished_at"), onHeaderCell: headerOf("finished_at"), render: (_, row) => fmtTime(row.finished_at) },
+      { title: "执行时长", width: FIXED_WIDTH.duration, render: (_, row) => fmtSpan(row.started_at, row.finished_at) },
       {
         title: "请求参数",
         dataIndex: "queue_info",
@@ -206,7 +230,7 @@ function ApiExecutions() {
   return (
     <div className="console-executions-pane" ref={ref}>
       <DashFilterPanel
-        hint="按应用名称、执行结果、MIS 任务号（均可模糊）筛选派单记录"
+        hint="按应用名称、执行结果、MIS 任务号、执行机器人、队列项、触发时间、请求参数筛选派单记录"
         onSearch={() => setApplied(draft)}
         onReset={() => {
           setDraft(EMPTY_DRAFT);
@@ -240,10 +264,45 @@ function ApiExecutions() {
             onPressEnter={() => setApplied(draft)}
           />
         </DashFilterField>
+        <DashFilterField label="执行机器人">
+          <FilterSelect
+            className="dash-filter-select"
+            placeholder="全部"
+            options={ROBOT_OPTIONS}
+            value={draft.robot || undefined}
+            onChange={(value) => setDraft((prev) => ({ ...prev, robot: String(value ?? "") }))}
+          />
+        </DashFilterField>
+        <DashFilterField label="队列项">
+          <FilterInput
+            className="dash-filter-input"
+            placeholder="队列项名称（模糊）"
+            value={draft.queue}
+            onChange={(event) => setDraft((prev) => ({ ...prev, queue: event.target.value }))}
+            onPressEnter={() => setApplied(draft)}
+          />
+        </DashFilterField>
+        <DashFilterField label="触发时间">
+          <DatePicker.RangePicker
+            className="dash-filter-range"
+            allowClear
+            value={draft.range}
+            onChange={(value) => setDraft((prev) => ({ ...prev, range: value?.[0] && value?.[1] ? [value[0], value[1]] : null }))}
+          />
+        </DashFilterField>
+        <DashFilterField label="请求参数">
+          <FilterInput
+            className="dash-filter-input"
+            placeholder="参数里包含的文字"
+            value={draft.params}
+            onChange={(event) => setDraft((prev) => ({ ...prev, params: event.target.value }))}
+            onPressEnter={() => setApplied(draft)}
+          />
+        </DashFilterField>
       </DashFilterPanel>
       <ProTable<Execution>
         className="console-pro-table"
-        headerTitle="API执行记录"
+        headerTitle="执行记录"
         rowKey="id"
         columns={columns}
         columnsState={{
@@ -270,6 +329,11 @@ function ApiExecutions() {
             title: applied.title,
             result: applied.result,
             misTaskId: applied.misTaskId,
+            robot: applied.robot,
+            queue: applied.queue,
+            params: applied.params,
+            from: applied.range?.[0].format("YYYY-MM-DD"),
+            to: applied.range?.[1].format("YYYY-MM-DD"),
             offset: (current - 1) * pageSize,
             limit: pageSize,
           });
@@ -284,7 +348,7 @@ function ApiExecutions() {
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="还没有 API 执行。高级任务的 webhook / 添加队列项建出队列项后，执行机领走开跑，每次执行在这里一行。"
+              description="还没有执行。建出队列项后，执行机领走开跑，每次执行在这里一行。"
             />
           ),
         }}

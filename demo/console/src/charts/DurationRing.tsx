@@ -1,5 +1,5 @@
 import * as echarts from "echarts";
-import { Tooltip } from "antd";
+import { Button, Tooltip } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { useThemeMode } from "../theme/ThemeRoot";
 
@@ -7,7 +7,10 @@ const COLORS = ["#6d5efc", "#3b82f6", "#22c55e", "#ff8a3d", "#ec4899", "#8b919a"
 
 type Slice = { name: string; value: number };
 
+/** 不足 1 分钟「N 秒」，不足 1 小时「N.N 分钟」，否则「N.N 小时」。中心和提示同一写法。 */
 function fmtDuration(ms: number) {
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec} 秒`;
   const min = ms / 60000;
   if (min < 60) return `${min.toFixed(1)} 分钟`;
   return `${(min / 60).toFixed(1)} 小时`;
@@ -36,6 +39,12 @@ export function DurationRing({ enter }: { enter: boolean }) {
   const total = SLICES.reduce((sum, item) => sum + item.value, 0);
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const enterOnce = useRef(enter && !reduce);
+  // 评审用：重播入场。产品里只播一次
+  const [replay, setReplay] = useState(0);
+  function playAgain() {
+    enterOnce.current = !reduce;
+    setReplay((n) => n + 1);
+  }
 
   useEffect(() => {
     const el = hostRef.current;
@@ -98,11 +107,19 @@ export function DurationRing({ enter }: { enter: boolean }) {
           animationDuration: play ? 1000 : 0,
           animationEasing: "cubicInOut",
           animationTypeUpdate: "transition",
+          animationDurationUpdate: 600,
+          animationEasingUpdate: "cubicInOut",
           data: SLICES.map((slice) => ({ name: slice.name, value: slice.value })),
         },
       ],
     });
-    const observer = new ResizeObserver(() => chart.resize());
+    // observe() 会立刻回调一次，此时 resize 会打断入场；只在宽度真的变了才 resize
+    let lastWidth = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === lastWidth) return;
+      lastWidth = el.clientWidth;
+      chart.resize();
+    });
     observer.observe(el);
     return () => {
       window.clearTimeout(mark);
@@ -110,7 +127,7 @@ export function DurationRing({ enter }: { enter: boolean }) {
       chart.dispose();
       chartRef.current = null;
     };
-  }, [dark, total]);
+  }, [dark, total, replay]);
 
   return (
     <div className="stats-share">
@@ -119,8 +136,14 @@ export function DurationRing({ enter }: { enter: boolean }) {
         {SLICES.map((item, index) => (
           <li
             key={item.name}
-            onMouseEnter={() => chartRef.current?.dispatchAction({ type: "highlight", seriesIndex: 0, name: item.name })}
-            onMouseLeave={() => chartRef.current?.dispatchAction({ type: "downplay", seriesIndex: 0, name: item.name })}
+            onMouseEnter={() => {
+              chartRef.current?.dispatchAction({ type: "highlight", seriesIndex: 0, dataIndex: index });
+              chartRef.current?.dispatchAction({ type: "showTip", seriesIndex: 0, dataIndex: index });
+            }}
+            onMouseLeave={() => {
+              chartRef.current?.dispatchAction({ type: "hideTip" });
+              chartRef.current?.dispatchAction({ type: "downplay", seriesIndex: 0, dataIndex: index });
+            }}
           >
             <s style={{ background: COLORS[index] }} />
             <LegendName name={item.name} />
@@ -128,6 +151,9 @@ export function DurationRing({ enter }: { enter: boolean }) {
           </li>
         ))}
       </ul>
+      <Button className="stats-ring-replay" size="small" type="link" onClick={playAgain}>
+        重播
+      </Button>
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { ProTable, type ProColumns } from "@ant-design/pro-components";
-import { DatePicker, Empty, Popconfirm, Space, Tabs, Tag, Typography, message } from "antd";
+import { Alert, DatePicker, Descriptions, Drawer, Empty, Popconfirm, Space, Tabs, Tag, Typography, message } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
-import { useMemo, useState, type HTMLAttributes, type MouseEvent as ReactMouseEvent, type ThHTMLAttributes } from "react";
+import { useMemo, useState, type HTMLAttributes } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
-import { listExecutions, ROBOT_OPTIONS, type Execution, type ExecutionStatus } from "../mock/data";
+import { ResizableTh } from "../components/ResizableTh";
+import { listExecutions, queueIdOf, type DayRange, type Execution, type ExecutionSortField, type ExecutionStatus } from "../mock/data";
 import { useTableScrollY } from "../hooks/useTableScrollY";
 import { useTableDensity } from "../lib/tableDensity";
 
@@ -24,17 +25,32 @@ const STATUS: Record<ExecutionStatus, { text: string; color: string }> = {
   stopped: { text: "已停止", color: "default" },
 };
 
+type DateRange = [Dayjs, Dayjs] | null;
+
 type Draft = {
   title: string;
   result: string;
-  misTaskId: string;
   robot: string;
-  queue: string;
-  params: string;
-  range: [Dayjs, Dayjs] | null;
+  created: DateRange;
+  started: DateRange;
+  finished: DateRange;
+  misTaskId: string;
 };
 
-const EMPTY_DRAFT: Draft = { title: "", result: "", misTaskId: "", robot: "", queue: "", params: "", range: null };
+const EMPTY_DRAFT: Draft = { title: "", result: "", robot: "", created: null, started: null, finished: null, misTaskId: "" };
+
+// 日历只选日期。开始日按北京时间 00:00:00，结束日按 23:59:59，两端都含，空着不限
+const toDays = (range: DateRange): DayRange => ({ from: range?.[0].format("YYYY-MM-DD"), to: range?.[1].format("YYYY-MM-DD") });
+
+type Sort = { field: ExecutionSortField; order: "ascend" | "descend" };
+const DEFAULT_SORT: Sort = { field: "created_at", order: "descend" };
+
+const FILTER_HINT =
+  "按应用名称、执行结果、执行机器人、触发时间、执行时间、结束时间、MIS 任务号筛选派单记录。应用名称、执行机器人和 MIS 任务号可模糊。三个时间只选日期，开始日按 00:00:00、结束日按 23:59:59（北京时间）；不选则不限";
+
+// 跳过、重试能不能点由这一行的状态定：演示里待领取、运行中能跳过，失败、已停止能重试
+const canSkip = (row: Execution) => row.status === "pending" || row.status === "running";
+const canRetry = (row: Execution) => row.status === "failed" || row.status === "stopped";
 
 const fmtTime = (value: string | null) => (value ? dayjs(value).format("YYYY-MM-DD HH:mm:ss") : "—");
 
@@ -59,42 +75,7 @@ const COLUMN_WIDTH = {
 
 const FIXED_WIDTH = { duration: 100, params: 240, actions: 168 } as const;
 
-const MIN_COL_W = 80;
-
 type ColKey = keyof typeof COLUMN_WIDTH;
-
-function ResizableTh({
-  resizeWidth,
-  onResizeWidth,
-  children,
-  ...rest
-}: ThHTMLAttributes<HTMLTableCellElement> & {
-  resizeWidth?: number;
-  onResizeWidth?: (width: number) => void;
-}) {
-  if (!onResizeWidth || resizeWidth == null) return <th {...rest}>{children}</th>;
-  const onMouseDown = (event: ReactMouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-    const startW = resizeWidth;
-    const move = (ev: MouseEvent) => onResizeWidth(Math.max(MIN_COL_W, startW + ev.clientX - startX));
-    const up = () => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
-      document.body.style.userSelect = "";
-    };
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  };
-  return (
-    <th {...rest}>
-      {children}
-      <span className="console-col-resizer" onMouseDown={onMouseDown} onClick={(event) => event.stopPropagation()} />
-    </th>
-  );
-}
 
 function showTotal(total: number, range: [number, number]) {
   return `显示第 ${range[0]} 到第 ${range[1]} 条记录，共 ${total} 条记录`;
@@ -130,6 +111,9 @@ export function JobsPage() {
 }
 
 function ApiExecutions() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queueParam = searchParams.get("queue");
+  const queueId = queueParam && /^\d+$/.test(queueParam) ? Number(queueParam) : null;
   // 数据统计页的链接可以带 result=running / failed，进来就筛好
   const initial = useMemo<Draft>(() => {
     const result = new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("result");
@@ -137,6 +121,8 @@ function ApiExecutions() {
   }, []);
   const [draft, setDraft] = useState<Draft>(initial);
   const [applied, setApplied] = useState<Draft>(initial);
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+  const [detail, setDetail] = useState<Execution | null>(null);
   const [widths, setWidths] = useState<Partial<Record<ColKey, number>>>({});
   const { ref, scrollY } = useTableScrollY();
   const density = useTableDensity();
@@ -145,6 +131,13 @@ function ApiExecutions() {
   const resize = (key: ColKey) => (next: number) => setWidths((prev) => ({ ...prev, [key]: next }));
   const headerOf = (key: ColKey) => () =>
     ({ resizeWidth: widthOf(key), onResizeWidth: resize(key) }) as HTMLAttributes<HTMLTableCellElement>;
+  // 表头可排序，只有升序、降序两态：点到降序再点回升序，没有「取消排序」
+  const sortable = (field: ExecutionSortField) => ({
+    sorter: true,
+    sortOrder: sort.field === field ? sort.order : null,
+    sortDirections: ["ascend", "descend"] as ("ascend" | "descend")[],
+    showSorterTooltip: false,
+  });
 
   const tableWidth =
     (Object.keys(COLUMN_WIDTH) as ColKey[]).reduce((sum, key) => (hidden[key] ? sum : sum + widthOf(key)), 0) +
@@ -160,6 +153,7 @@ function ApiExecutions() {
         width: widthOf("title"),
         fixed: "left",
         onHeaderCell: headerOf("title"),
+        ...sortable("title"),
         render: (_, row) => (
           <span className="console-cell-clip" title={row.title}>
             {row.title}
@@ -172,12 +166,19 @@ function ApiExecutions() {
         width: widthOf("queue_name"),
         ellipsis: true,
         onHeaderCell: headerOf("queue_name"),
+        ...sortable("queue_name"),
+        render: (_, row) => (
+          <Typography.Link href={`#/jobs?record=api&queue=${queueIdOf(row)}`} title={row.queue_name}>
+            {row.queue_name}
+          </Typography.Link>
+        ),
       },
       {
         title: "MIS_ID",
         dataIndex: "mis_task_id",
         width: widthOf("mis_task_id"),
         onHeaderCell: headerOf("mis_task_id"),
+        ...sortable("mis_task_id"),
         render: (_, row) => (row.mis_task_id != null ? String(row.mis_task_id) : "—"),
       },
       {
@@ -186,6 +187,7 @@ function ApiExecutions() {
         width: widthOf("robot_name"),
         ellipsis: true,
         onHeaderCell: headerOf("robot_name"),
+        ...sortable("robot_name"),
         render: (_, row) => row.robot_name ?? row.robot_id ?? "—",
       },
       {
@@ -193,18 +195,25 @@ function ApiExecutions() {
         dataIndex: "status",
         width: widthOf("status"),
         onHeaderCell: headerOf("status"),
+        ...sortable("status"),
         render: (_, row) => <Tag color={STATUS[row.status].color}>{STATUS[row.status].text}</Tag>,
       },
-      { title: "触发时间", dataIndex: "created_at", width: widthOf("created_at"), onHeaderCell: headerOf("created_at"), render: (_, row) => fmtTime(row.created_at) },
-      { title: "执行时间", dataIndex: "started_at", width: widthOf("started_at"), onHeaderCell: headerOf("started_at"), render: (_, row) => fmtTime(row.started_at) },
-      { title: "结束时间", dataIndex: "finished_at", width: widthOf("finished_at"), onHeaderCell: headerOf("finished_at"), render: (_, row) => fmtTime(row.finished_at) },
+      { title: "触发时间", dataIndex: "created_at", width: widthOf("created_at"), onHeaderCell: headerOf("created_at"), ...sortable("created_at"), render: (_, row) => fmtTime(row.created_at) },
+      { title: "执行时间", dataIndex: "started_at", width: widthOf("started_at"), onHeaderCell: headerOf("started_at"), ...sortable("started_at"), render: (_, row) => fmtTime(row.started_at) },
+      { title: "结束时间", dataIndex: "finished_at", width: widthOf("finished_at"), onHeaderCell: headerOf("finished_at"), ...sortable("finished_at"), render: (_, row) => fmtTime(row.finished_at) },
       { title: "执行时长", width: FIXED_WIDTH.duration, render: (_, row) => fmtSpan(row.started_at, row.finished_at) },
       {
         title: "请求参数",
         dataIndex: "queue_info",
         width: FIXED_WIDTH.params,
-        ellipsis: true,
-        render: (_, row) => row.queue_info ?? "—",
+        render: (_, row) =>
+          row.queue_info ? (
+            <Typography.Text className="console-cell-params" copyable={{ text: row.queue_info }} ellipsis={{ tooltip: row.queue_info }}>
+              {row.queue_info}
+            </Typography.Text>
+          ) : (
+            "—"
+          ),
       },
       {
         title: "操作",
@@ -213,24 +222,63 @@ function ApiExecutions() {
         fixed: "right",
         render: (_, row) => (
           <Space size={16} className="console-row-actions">
-            <Typography.Link>详情</Typography.Link>
-            <Popconfirm title={`跳过派单 #${row.id}？`} okText="跳过" okButtonProps={{ danger: true }} onConfirm={() => message.success("已跳过")}>
-              <Typography.Link style={{ color: "var(--ant-color-error)" }}>跳过</Typography.Link>
-            </Popconfirm>
-            <Popconfirm title="重试这条队列项？" okText="重试" onConfirm={() => message.success("已放回排队")}>
-              <Typography.Link>重试</Typography.Link>
-            </Popconfirm>
+            <Typography.Link onClick={() => setDetail(row)}>详情</Typography.Link>
+            {canSkip(row) ? (
+              <Popconfirm title={`跳过派单 #${row.id}？`} okText="跳过" okButtonProps={{ danger: true }} onConfirm={() => message.success("已跳过")}>
+                <Typography.Link style={{ color: "var(--ant-color-error)" }}>跳过</Typography.Link>
+              </Popconfirm>
+            ) : (
+              <Typography.Link disabled className="console-action-disabled">
+                跳过
+              </Typography.Link>
+            )}
+            {canRetry(row) ? (
+              <Popconfirm title="重试这条队列项？" okText="重试" onConfirm={() => message.success("已放回排队")}>
+                <Typography.Link>重试</Typography.Link>
+              </Popconfirm>
+            ) : (
+              <Typography.Link disabled className="console-action-disabled">
+                重试
+              </Typography.Link>
+            )}
           </Space>
         ),
       },
     ],
-    [widths],
+    [widths, sort],
   );
+
+  const setField = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((prev) => ({ ...prev, [key]: value }));
+  const rangeProps = (key: "created" | "started" | "finished") => ({
+    className: "dash-filter-range",
+    allowClear: true,
+    value: draft[key],
+    onChange: (value: [Dayjs | null, Dayjs | null] | null) => setField(key, value?.[0] && value?.[1] ? [value[0], value[1]] : null),
+  });
 
   return (
     <div className="console-executions-pane" ref={ref}>
+      {queueId != null ? (
+        <Alert
+          className="console-drill"
+          type="info"
+          showIcon
+          title={`只看队列项 #${queueId} 的执行`}
+          action={
+            <Typography.Link
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete("queue");
+                setSearchParams(next, { replace: true });
+              }}
+            >
+              看全部
+            </Typography.Link>
+          }
+        />
+      ) : null}
       <DashFilterPanel
-        hint="按应用名称、执行结果、MIS 任务号、执行机器人、队列项、触发时间、请求参数筛选派单记录"
+        hint={FILTER_HINT}
         onSearch={() => setApplied(draft)}
         onReset={() => {
           setDraft(EMPTY_DRAFT);
@@ -239,63 +287,42 @@ function ApiExecutions() {
       >
         <DashFilterField label="应用名称">
           <FilterInput
-            className="dash-filter-input"
             placeholder="应用名称"
             value={draft.title}
-            onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
+            onChange={(event) => setField("title", event.target.value)}
             onPressEnter={() => setApplied(draft)}
           />
         </DashFilterField>
         <DashFilterField label="执行结果">
           <FilterSelect
-            className="dash-filter-select"
             placeholder="全部"
             options={RESULT_OPTIONS}
             value={draft.result || undefined}
-            onChange={(value) => setDraft((prev) => ({ ...prev, result: String(value ?? "") }))}
-          />
-        </DashFilterField>
-        <DashFilterField label="MIS_ID">
-          <FilterInput
-            className="dash-filter-input"
-            placeholder="MIS 任务号（模糊）"
-            value={draft.misTaskId}
-            onChange={(event) => setDraft((prev) => ({ ...prev, misTaskId: event.target.value.replace(/\D/g, "") }))}
-            onPressEnter={() => setApplied(draft)}
+            onChange={(value) => setField("result", String(value ?? ""))}
           />
         </DashFilterField>
         <DashFilterField label="执行机器人">
-          <FilterSelect
-            className="dash-filter-select"
-            placeholder="全部"
-            options={ROBOT_OPTIONS}
-            value={draft.robot || undefined}
-            onChange={(value) => setDraft((prev) => ({ ...prev, robot: String(value ?? "") }))}
-          />
-        </DashFilterField>
-        <DashFilterField label="队列项">
           <FilterInput
-            className="dash-filter-input"
-            placeholder="队列项名称（模糊）"
-            value={draft.queue}
-            onChange={(event) => setDraft((prev) => ({ ...prev, queue: event.target.value }))}
+            placeholder="名称或标识（模糊）"
+            value={draft.robot}
+            onChange={(event) => setField("robot", event.target.value)}
             onPressEnter={() => setApplied(draft)}
           />
         </DashFilterField>
         <DashFilterField label="触发时间">
-          <DatePicker.RangePicker
-            className="dash-filter-range"
-            allowClear
-            value={draft.range}
-            onChange={(value) => setDraft((prev) => ({ ...prev, range: value?.[0] && value?.[1] ? [value[0], value[1]] : null }))}
-          />
+          <DatePicker.RangePicker {...rangeProps("created")} />
         </DashFilterField>
-        <DashFilterField label="请求参数">
+        <DashFilterField label="执行时间">
+          <DatePicker.RangePicker {...rangeProps("started")} />
+        </DashFilterField>
+        <DashFilterField label="结束时间">
+          <DatePicker.RangePicker {...rangeProps("finished")} />
+        </DashFilterField>
+        <DashFilterField label="MIS_ID">
           <FilterInput
-            className="dash-filter-input"
-            placeholder="参数里包含的文字"
-            value={draft.params}
-            onChange={(event) => setDraft((prev) => ({ ...prev, params: event.target.value }))}
+            placeholder="MIS 任务号（模糊）"
+            value={draft.misTaskId}
+            onChange={(event) => setField("misTaskId", event.target.value.replace(/\D/g, ""))}
             onPressEnter={() => setApplied(draft)}
           />
         </DashFilterField>
@@ -312,6 +339,12 @@ function ApiExecutions() {
         search={false}
         cardBordered
         components={{ header: { cell: ResizableTh } }}
+        onChange={(_pagination, _filters, sorter) => {
+          const one = Array.isArray(sorter) ? sorter[0] : sorter;
+          const field = (one?.field ?? sort.field) as ExecutionSortField;
+          // order 为空是点到了第三下：回到升序，不进入「取消排序」
+          setSort({ field, order: one?.order ?? "ascend" });
+        }}
         options={{
           density: true,
           fullScreen: false,
@@ -321,19 +354,20 @@ function ApiExecutions() {
             action?.reload?.();
           },
         }}
-        params={applied}
+        params={{ ...applied, queueId, sort }}
         request={async (query) => {
           const current = query.current ?? 1;
           const pageSize = query.pageSize ?? 20;
           const { items, total } = listExecutions({
             title: applied.title,
             result: applied.result,
-            misTaskId: applied.misTaskId,
             robot: applied.robot,
-            queue: applied.queue,
-            params: applied.params,
-            from: applied.range?.[0].format("YYYY-MM-DD"),
-            to: applied.range?.[1].format("YYYY-MM-DD"),
+            misTaskId: applied.misTaskId,
+            created: toDays(applied.created),
+            started: toDays(applied.started),
+            finished: toDays(applied.finished),
+            queueId: queueId ?? undefined,
+            sort,
             offset: (current - 1) * pageSize,
             limit: pageSize,
           });
@@ -348,11 +382,32 @@ function ApiExecutions() {
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="还没有执行。建出队列项后，执行机领走开跑，每次执行在这里一行。"
+              description="还没有 API 执行。高级任务的 webhook / 添加队列项建出队列项后，执行机领走开跑，每次执行在这里一行。"
             />
           ),
         }}
       />
+      <Drawer title={detail ? `执行详情 · 派单 #${detail.id}` : ""} size={760} open={detail != null} onClose={() => setDetail(null)} destroyOnHidden>
+        {detail ? (
+          <Descriptions
+            column={1}
+            size="small"
+            bordered
+            items={[
+              { key: "title", label: "应用名称", children: detail.title },
+              { key: "queue", label: "队列项", children: detail.queue_name },
+              { key: "mis", label: "MIS_ID", children: detail.mis_task_id ?? "—" },
+              { key: "robot", label: "执行机器人", children: detail.robot_name ?? detail.robot_id ?? "—" },
+              { key: "status", label: "执行结果", children: <Tag color={STATUS[detail.status].color}>{STATUS[detail.status].text}</Tag> },
+              { key: "created", label: "触发时间", children: fmtTime(detail.created_at) },
+              { key: "started", label: "执行时间", children: fmtTime(detail.started_at) },
+              { key: "finished", label: "结束时间", children: fmtTime(detail.finished_at) },
+              { key: "span", label: "执行时长", children: fmtSpan(detail.started_at, detail.finished_at) },
+              { key: "params", label: "请求参数", children: detail.queue_info ?? "—" },
+            ]}
+          />
+        ) : null}
+      </Drawer>
     </div>
   );
 }

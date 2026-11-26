@@ -149,7 +149,6 @@ const executions: Execution[] = [
   }
 })();
 
-export const ROBOT_OPTIONS = ["执行机-01", "执行机-02", "执行机-03", "执行机-04"].map((name) => ({ value: name, label: name }));
 
 type Captcha = { captcha_id: string; image: string; code: string };
 
@@ -209,37 +208,79 @@ export function login(input: {
   return { ok: true };
 }
 
+/** 队列项编号：演示里取队列项名称里的「任务 N」。 */
+export function queueIdOf(row: Execution): number {
+  return Number(/任务 (\d+)/.exec(row.queue_name)?.[1] ?? 0);
+}
+
+/** 北京时间的日期，YYYY-MM-DD。筛选的日期范围一律按北京时间算。 */
+function beijingDay(iso: string): string {
+  return new Date(new Date(iso).getTime() + 8 * 3600_000).toISOString().slice(0, 10);
+}
+
+export type DayRange = { from?: string; to?: string };
+
+export type ExecutionSortField =
+  | "title"
+  | "queue_name"
+  | "mis_task_id"
+  | "robot_name"
+  | "status"
+  | "created_at"
+  | "started_at"
+  | "finished_at";
+
+const STATUS_ORDER: Record<ExecutionStatus, number> = { pending: 0, running: 1, stopping: 2, succeeded: 3, failed: 4, stopped: 5 };
+
+function inRange(iso: string | null, range?: DayRange) {
+  if (!range?.from && !range?.to) return true;
+  // 还没开始 / 还没结束的派单没有这个时间，不进对应的范围
+  if (!iso) return false;
+  const day = beijingDay(iso);
+  if (range.from && day < range.from) return false;
+  if (range.to && day > range.to) return false;
+  return true;
+}
+
 export function listExecutions(query: {
   title?: string;
   result?: string;
-  misTaskId?: string;
+  /** 名称或标识，模糊 */
   robot?: string;
-  queue?: string;
-  params?: string;
-  /** 触发日期范围，YYYY-MM-DD，含两端 */
-  from?: string;
-  to?: string;
+  misTaskId?: string;
+  created?: DayRange;
+  started?: DayRange;
+  finished?: DayRange;
+  /** 只看某个队列项的执行 */
+  queueId?: number;
+  sort?: { field: ExecutionSortField; order: "ascend" | "descend" };
   offset: number;
   limit: number;
 }): { items: Execution[]; total: number } {
   const title = query.title?.trim().toLowerCase() ?? "";
+  const robot = query.robot?.trim().toLowerCase() ?? "";
   const mis = query.misTaskId?.trim() ?? "";
   const filtered = executions.filter((row) => {
     if (title && !row.title.toLowerCase().includes(title)) return false;
     if (query.result && row.status !== query.result) return false;
+    if (robot && !`${row.robot_name ?? ""} ${row.robot_id ?? ""}`.toLowerCase().includes(robot)) return false;
     if (mis && !String(row.mis_task_id ?? "").includes(mis)) return false;
-    if (query.robot && row.robot_name !== query.robot) return false;
-    const queue = query.queue?.trim().toLowerCase() ?? "";
-    if (queue && !row.queue_name.toLowerCase().includes(queue)) return false;
-    const params = query.params?.trim().toLowerCase() ?? "";
-    if (params && !(row.queue_info ?? "").toLowerCase().includes(params)) return false;
-    const day = new Date(row.created_at);
-    const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-    if (query.from && key < query.from) return false;
-    if (query.to && key > query.to) return false;
-    return true;
+    if (query.queueId != null && queueIdOf(row) !== query.queueId) return false;
+    return inRange(row.created_at, query.created) && inRange(row.started_at, query.started) && inRange(row.finished_at, query.finished);
   });
-  filtered.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const field = query.sort?.field ?? "created_at";
+  const sign = (query.sort?.order ?? "descend") === "ascend" ? 1 : -1;
+  const keyOf = (row: Execution): string | number | null => (field === "status" ? STATUS_ORDER[row.status] : row[field]);
+  filtered.sort((a, b) => {
+    const x = keyOf(a);
+    const y = keyOf(b);
+    // 空值永远排在最后，不随升降序翻到最前
+    if (x == null && y == null) return b.id - a.id;
+    if (x == null) return 1;
+    if (y == null) return -1;
+    if (x === y) return b.id - a.id;
+    return (x < y ? -1 : 1) * sign;
+  });
   return { items: filtered.slice(query.offset, query.offset + query.limit), total: filtered.length };
 }
 

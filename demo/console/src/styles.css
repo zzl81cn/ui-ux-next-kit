@@ -3796,3 +3796,21 @@ html[data-console-theme="dark"] .stats-health .stats-health-title {
     animation: none;
   }
 }
+
+/* 执行记录：下钻提示、请求参数、不能点的操作 */
+.console-drill {
+  flex-shrink: 0;
+}
+
+.console-cell-params {
+  display: inline-flex;
+  max-width: 220px;
+  vertical-align: middle;
+}
+
+.console-row-actions .console-action-disabled.ant-typography-disabled,
+.console-row-actions .console-action-disabled.ant-typography-disabled:hover {
+  color: var(--ant-color-text-disabled);
+  opacity: 1;
+  cursor: not-allowed;
+}

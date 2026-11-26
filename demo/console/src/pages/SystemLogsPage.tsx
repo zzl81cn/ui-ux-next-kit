@@ -2,8 +2,9 @@ import { CopyOutlined } from "@ant-design/icons";
 import { ProTable, type ProColumns } from "@ant-design/pro-components";
 import { Button, DatePicker, Drawer, Dropdown, Switch, Tabs, Tag, Typography, message } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type HTMLAttributes } from "react";
 import { DashFilterField, DashFilterPanel, FilterInput, FilterSelect } from "../components/DashFilterPanel";
+import { ResizableTh } from "../components/ResizableTh";
 import { useTableScrollY } from "../hooks/useTableScrollY";
 import { useTableDensity } from "../lib/tableDensity";
 import { LOG_ROWS, LOG_TABS, type LogRow } from "../mock/logs";
@@ -21,6 +22,24 @@ function emptyDraft(): Draft {
   return { keyword: "", role: "", range: [dayjs().subtract(30, "day"), dayjs()], failedOnly: false };
 }
 
+const COLUMN_WIDTH = { summary: 200, category: 96, action: 120, at: 170, actor: 100, ip: 120, object: 160 } as const;
+const ACTIONS_WIDTH = 80;
+type ColKey = keyof typeof COLUMN_WIDTH;
+
+type Sort = { field: ColKey; order: "ascend" | "descend" };
+// 默认按时间新的在前，和表头上「时间」的降序箭头一致
+const DEFAULT_SORT: Sort = { field: "at", order: "descend" };
+
+const SORT_VALUE: Record<ColKey, (row: LogRow) => string> = {
+  summary: (row) => row.title || row.action,
+  category: (row) => row.category,
+  action: (row) => row.action,
+  at: (row) => row.at,
+  actor: (row) => row.actor,
+  ip: (row) => row.ip,
+  object: (row) => row.objectId,
+};
+
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -35,6 +54,9 @@ export function SystemLogsPage() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [applied, setApplied] = useState<Draft>(emptyDraft);
   const [current, setCurrent] = useState<LogRow | null>(null);
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+  const [widths, setWidths] = useState<Partial<Record<ColKey, number>>>({});
+  const [hidden, setHidden] = useState<Record<string, boolean>>({});
   const { ref, scrollY } = useTableScrollY();
   const density = useTableDensity();
   const { dark } = useThemeMode();
@@ -42,7 +64,7 @@ export function SystemLogsPage() {
   const rows = useMemo(() => {
     const keyword = applied.keyword.trim().toLowerCase();
     const [start, end] = applied.range;
-    return LOG_ROWS.filter((row) => {
+    const picked = LOG_ROWS.filter((row) => {
       if (tab !== "全部类型" && row.category !== tab) return false;
       if (applied.role && row.role !== applied.role) return false;
       if (applied.failedOnly && row.success !== false) return false;
@@ -51,33 +73,70 @@ export function SystemLogsPage() {
       if (!keyword) return true;
       return [row.actor, row.title, row.action, row.objectId, row.objectType].join(" ").toLowerCase().includes(keyword);
     });
-  }, [applied, tab]);
+    // 表头排序只有升序、降序两态。空值永远排在最后，不随升降序翻到最前
+    const sign = sort.order === "ascend" ? 1 : -1;
+    const valueOf = SORT_VALUE[sort.field];
+    return [...picked].sort((a, b) => {
+      const x = valueOf(a);
+      const y = valueOf(b);
+      if (!x && !y) return b.id.localeCompare(a.id);
+      if (!x) return 1;
+      if (!y) return -1;
+      if (x === y) return b.id.localeCompare(a.id);
+      return (x < y ? -1 : 1) * sign;
+    });
+  }, [applied, tab, sort]);
+
+  const widthOf = (key: ColKey) => widths[key] ?? COLUMN_WIDTH[key];
+  const resize = (key: ColKey) => (next: number) => setWidths((prev) => ({ ...prev, [key]: next }));
+  const headerOf = (key: ColKey) => () => ({ resizeWidth: widthOf(key), onResizeWidth: resize(key) }) as HTMLAttributes<HTMLTableCellElement>;
+  const sortable = (field: ColKey) => ({
+    sorter: true,
+    sortOrder: sort.field === field ? sort.order : null,
+    sortDirections: ["ascend", "descend"] as ("ascend" | "descend")[],
+    showSorterTooltip: false,
+  });
+  const tableWidth = (Object.keys(COLUMN_WIDTH) as ColKey[]).reduce((sum, key) => (hidden[key] ? sum : sum + widthOf(key)), 0) + ACTIONS_WIDTH;
 
   const columns: ProColumns<LogRow>[] = [
     {
       title: "摘要",
-      width: 200,
+      key: "summary",
+      width: widthOf("summary"),
       fixed: "left",
+      onHeaderCell: headerOf("summary"),
+      ...sortable("summary"),
       render: (_, row) => (
-        <span>
+        <span className="console-cell-clip" title={row.title || row.action}>
           {row.title || row.action} {row.success === false ? <Tag color="error">失败</Tag> : null}
         </span>
       ),
     },
-    { title: "类型", width: 96, render: (_, row) => <Tag>{row.category}</Tag> },
-    { title: "动作", dataIndex: "action", width: 120, render: (_, row) => row.action || "—" },
-    { title: "时间", dataIndex: "at", width: 170 },
-    { title: "操作者", dataIndex: "actor", width: 100 },
-    { title: "IP", dataIndex: "ip", width: 120, render: (_, row) => row.ip || "—" },
+    { title: "类型", key: "category", width: widthOf("category"), onHeaderCell: headerOf("category"), ...sortable("category"), render: (_, row) => <Tag>{row.category}</Tag> },
+    { title: "动作", key: "action", dataIndex: "action", width: widthOf("action"), onHeaderCell: headerOf("action"), ...sortable("action"), render: (_, row) => row.action || "—" },
+    { title: "时间", key: "at", dataIndex: "at", width: widthOf("at"), onHeaderCell: headerOf("at"), ...sortable("at") },
+    { title: "操作者", key: "actor", dataIndex: "actor", width: widthOf("actor"), onHeaderCell: headerOf("actor"), ...sortable("actor") },
+    { title: "IP", key: "ip", dataIndex: "ip", width: widthOf("ip"), onHeaderCell: headerOf("ip"), ...sortable("ip"), render: (_, row) => row.ip || "—" },
     {
       title: "对象",
-      width: 160,
+      key: "object",
+      width: widthOf("object"),
       ellipsis: true,
-      render: (_, row) => (row.objectId ? <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>{row.objectId}</span> : "—"),
+      onHeaderCell: headerOf("object"),
+      ...sortable("object"),
+      render: (_, row) =>
+        row.objectId ? (
+          <span className="console-cell-clip" title={row.objectId} style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>
+            {row.objectId}
+          </span>
+        ) : (
+          "—"
+        ),
     },
     {
       title: "操作",
-      width: 80,
+      key: "actions",
+      width: ACTIONS_WIDTH,
       fixed: "right",
       render: (_, row) => <Typography.Link onClick={() => setCurrent(row)}>详情</Typography.Link>,
     },
@@ -149,14 +208,35 @@ export function SystemLogsPage() {
           dataSource={rows}
           search={false}
           cardBordered
-          options={false}
+          columnsState={{
+            onChange: (map) => setHidden(Object.fromEntries(Object.entries(map).map(([key, value]) => [key, value.show === false]))),
+          }}
+          components={{ header: { cell: ResizableTh } }}
+          onChange={(_pagination, _filters, sorter) => {
+            const one = Array.isArray(sorter) ? sorter[0] : sorter;
+            const field = String(one?.columnKey ?? sort.field) as ColKey;
+            // order 为空是点到了第三下：回到升序，不进入「取消排序」
+            setSort({ field, order: one?.order ?? "ascend" });
+          }}
+          options={{
+            density: true,
+            fullScreen: false,
+            setting: true,
+            reload: () => {
+              setWidths({});
+              setSort(DEFAULT_SORT);
+              setApplied((prev) => ({ ...prev }));
+            },
+          }}
           size={density.size}
+          onSizeChange={density.onSizeChange}
+          tableLayout="fixed"
           toolBarRender={() => [
             <Button key="export" onClick={exportCsv}>
               导出
             </Button>,
           ]}
-          scroll={{ x: "max-content", y: scrollY }}
+          scroll={{ x: tableWidth, y: scrollY }}
           pagination={{ defaultPageSize: 20, showSizeChanger: true, showTotal }}
           locale={{ emptyText: "这段时间没有审计记录。放宽时间或换类型再查。" }}
         />

@@ -369,7 +369,7 @@ export function StatsPage() {
             {grown ? (
               <>
                 <p className="stats-sub">一次成功 71% · vs T0 68%</p>
-                <TrendChart days={days} end={endIso} enter={enter} />
+                <TrendChart days={days} end={endIso} />
               </>
             ) : (
               <SkelBody height={200} lines={5} />

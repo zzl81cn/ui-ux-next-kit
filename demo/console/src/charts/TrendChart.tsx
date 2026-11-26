@@ -25,20 +25,20 @@ function recentDays(count: number, end?: string): Day[] {
   return rows;
 }
 
-export function TrendChart({ days, end, enter }: { days: number; end?: string; enter: boolean }) {
+/**
+ * 运行趋势。入场和每日操作量同一套：从左到右每天一根柱子依次弹出，单根 1000ms、elasticOut，第 i 天延迟 i × 20ms。
+ * 延迟只按「第几天」算（echarts 给每个系列传的都是数据下标），所以同一天的三层同时长出。
+ * 换窗口、数据变化再播一遍，参数相同。减少动效时整套不播。起点由调用方控制：数据到了、等完「图表进场延迟」才挂载。
+ */
+export function TrendChart({ days, end }: { days: number; end?: string }) {
   const { dark } = useThemeMode();
   const hostRef = useRef<HTMLDivElement>(null);
   const rows = useMemo(() => recentDays(days, end), [days, end]);
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const enterOnce = useRef(enter && !reduce);
 
   useEffect(() => {
     const el = hostRef.current;
     if (!el) return;
-    const play = enterOnce.current;
-    const mark = window.setTimeout(() => {
-      enterOnce.current = false;
-    }, 0);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const chart = echarts.getInstanceByDom(el) ?? echarts.init(el);
     const ink = dark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.45)";
     const grid = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
@@ -48,9 +48,13 @@ export function TrendChart({ days, end, enter }: { days: number; end?: string; e
     };
     const width = rows.length > 14 ? 14 : 22;
     chart.setOption({
-      animation: play,
-      animationDuration: play ? 800 : 0,
-      animationEasing: "cubicOut",
+      animation: !reduce,
+      animationDuration: 1000,
+      animationEasing: "elasticOut",
+      animationDelay: (index: number) => index * 20,
+      animationDurationUpdate: 1000,
+      animationEasingUpdate: "elasticOut",
+      animationDelayUpdate: (index: number) => index * 20,
       tooltip: {
         trigger: "axis",
         appendTo: "body",
@@ -116,10 +120,15 @@ export function TrendChart({ days, end, enter }: { days: number; end?: string; e
         },
       ],
     });
-    const observer = new ResizeObserver(() => chart.resize());
+    // observe() 会立刻回调一次，此时 resize 会把入场动画打断，所以只在宽度真的变了才 resize
+    let lastWidth = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === lastWidth) return;
+      lastWidth = el.clientWidth;
+      chart.resize();
+    });
     observer.observe(el);
     return () => {
-      window.clearTimeout(mark);
       observer.disconnect();
       chart.dispose();
     };

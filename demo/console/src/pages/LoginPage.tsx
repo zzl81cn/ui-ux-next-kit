@@ -1,5 +1,5 @@
 import { Button, Form, Input, Space, Typography, message, type InputRef } from "antd";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import feishuMark from "../assets/feishu-logo.png";
 import { PRODUCT_LOGO, PRODUCT_NAME } from "../brand";
@@ -20,6 +20,8 @@ export function LoginPage() {
   const [captcha, setCaptcha] = useState<{ captcha_id: string; image: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const captchaInputRef = useRef<InputRef>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const frame = useRef(0);
   const brand = useSiteBrand();
   const captchaOn = loadCaptchaSettings().enabled;
   const redirect = params.get("redirect") || "/stats";
@@ -39,6 +41,21 @@ export function LoginPage() {
     reloadCaptcha();
     if (loadCaptchaSettings().enabled) captchaInputRef.current?.focus();
   }, [reloadCaptcha]);
+
+  useEffect(() => () => window.cancelAnimationFrame(frame.current), []);
+
+  /** 指针光晕：位置写进 CSS 变量，经 requestAnimationFrame 合并，不触发重渲染 */
+  function trackPointer(event: MouseEvent<HTMLDivElement>) {
+    const { clientX, clientY } = event;
+    window.cancelAnimationFrame(frame.current);
+    frame.current = window.requestAnimationFrame(() => {
+      const card = cardRef.current;
+      if (!card) return;
+      const box = card.getBoundingClientRect();
+      card.style.setProperty("--mouse-x", `${clientX - box.left}px`);
+      card.style.setProperty("--mouse-y", `${clientY - box.top}px`);
+    });
+  }
 
   if (hasSession()) {
     return <Navigate to={redirect.startsWith("/") ? redirect : "/stats"} replace />;
@@ -74,14 +91,18 @@ export function LoginPage() {
 
   return (
     <div className="console-login">
-      <div className="console-login-card">
+      <div className="console-login__canvas" aria-hidden="true">
+        <span className="console-login__orb console-login__orb--a" />
+        <span className="console-login__orb console-login__orb--b" />
+      </div>
+      <div className="console-login-card" ref={cardRef} onMouseMove={trackPointer}>
         {brand.logo_url ? (
           <img src={brand.logo_url} alt="" style={{ height: 40, width: "auto" }} />
         ) : (
           <img src={PRODUCT_LOGO} alt="" style={{ height: 40, width: 40, display: "block" }} />
         )}
         <Typography.Title level={3} className="console-login-title">
-          {brand.site_name || PRODUCT_NAME}
+          <span className="console-login-title__text">{brand.site_name || PRODUCT_NAME}</span>
           {brand.site_tag ? <span className="console-brand-tag">{brand.site_tag}</span> : null}
         </Typography.Title>
         <Typography.Paragraph type="secondary" className="console-login-sub">

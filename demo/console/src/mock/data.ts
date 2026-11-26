@@ -162,21 +162,26 @@ function drawCaptcha(look: CaptchaSettings): Captcha {
   const dots = look.noise === "low" ? 8 : look.noise === "high" ? 56 : 24;
   const lines = Math.min(8, Math.max(0, Math.round(look.lines) || 0));
   const width = 28 * length;
+  // 白底，笔画按横向渐变上色：深蓝 → 紫 → 青循环取色，每张图的起始色随机；噪点和圆点跟着同色
+  const palette = ["#1d4ed8", "#7c3aed", "#0d9488"];
+  const first = Math.floor(Math.random() * palette.length);
+  const stops = [0, 1, 2, 3].map((n) => `<stop offset="${((n * 100) / 3).toFixed(2)}%" stop-color="${palette[(first + n) % palette.length]}"/>`).join("");
   const noise = Array.from({ length: dots }, (_, index) => {
     const x = (index * 37) % width;
     const y = (index * 17) % 40;
-    return `<circle cx="${x}" cy="${y}" r="1" fill="#98a2b3"/>`;
+    return `<circle cx="${x}" cy="${y}" r="1" fill="url(#cap-ink)" opacity="0.55"/>`;
   }).join("");
   const rules = Array.from({ length: lines }, (_, index) => {
     const y = 6 + index * 4;
-    return `<line x1="0" y1="${y}" x2="${width}" y2="${40 - y}" stroke="#d0d5dd" stroke-width="1"/>`;
+    return `<line x1="0" y1="${y}" x2="${width}" y2="${40 - y}" stroke="url(#cap-ink)" stroke-width="1" opacity="0.4"/>`;
   }).join("");
   const id = `cap-${Date.now()}-${code}`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="40" data-lines="${lines}" data-noise="${look.noise}">
-    <rect width="${width}" height="40" fill="#f5f5f5"/>
+    <defs><linearGradient id="cap-ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${width}" y2="0">${stops}</linearGradient></defs>
+    <rect width="${width}" height="40" fill="#fff"/>
     ${rules}
     ${noise}
-    <text x="10" y="27" font-family="ui-monospace,monospace" font-size="20" font-weight="700" fill="#1b1f24" letter-spacing="3">${code}</text>
+    <text x="10" y="27" font-family="ui-monospace,monospace" font-size="20" font-weight="700" fill="url(#cap-ink)" letter-spacing="3">${code}</text>
   </svg>`;
   return { captcha_id: id, image: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`, code };
 }

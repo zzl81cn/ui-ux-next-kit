@@ -18,11 +18,11 @@ export function isTaskState(value: string | null): value is TaskState {
   return TASK_STATE_OPTIONS.some((item) => item.value === value);
 }
 
-/** 进度条的四类数。总数 = 批次总户数；未结 = 排队 + 运行中 */
-export type TaskCounts = { total: number; done: number; failed: number; skipped: number; queued: number };
+/** 进度条的数。总数 = 批次总户数；未结 = 排队 + 运行中；running 是未结里执行机正在跑的那几户（只在真在跑时画成一小段） */
+export type TaskCounts = { total: number; done: number; failed: number; skipped: number; queued: number; running?: number };
 
 export const TASK_COUNTS: Record<"running" | "unfinished" | "abnormal", TaskCounts> = {
-  running: { total: 120, done: 70, failed: 3, skipped: 5, queued: 42 },
+  running: { total: 120, done: 70, failed: 3, skipped: 5, queued: 42, running: 1 },
   unfinished: { total: 120, done: 88, failed: 0, skipped: 4, queued: 28 },
   abnormal: { total: 120, done: 62, failed: 14, skipped: 5, queued: 39 },
 };

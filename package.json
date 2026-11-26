@@ -1,6 +1,6 @@
 {
   "name": "ui-ux-next-kit",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "UI/UX Next Kit. Installs the Cursor skill and project rules, and updates them with npm update.",
   "license": "MIT",
   "bin": {
@@ -37,5 +37,8 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "playwright-core": "^1.65.1"
   }
 }

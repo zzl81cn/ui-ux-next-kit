@@ -53,13 +53,16 @@ export function DashFilterPanel({
   onReset,
   loading = false,
   columns,
+  actions,
 }: {
   hint?: string;
   children: ReactNode;
-  onSearch: () => void;
-  onReset: () => void;
+  onSearch?: () => void;
+  onReset?: () => void;
   loading?: boolean;
   columns?: number;
+  /** 换掉默认的「重置 / 查询」（没有查询语义的面板，如运行日志）。末列按内容宽，字段均分剩余宽度。 */
+  actions?: ReactNode;
 }) {
   const rootRef = useRef<HTMLFormElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -203,13 +206,13 @@ export function DashFilterPanel({
       className="dash-filter"
       onSubmit={(event) => {
         event.preventDefault();
-        onSearch();
+        onSearch?.();
       }}
     >
       {hint ? <p className="dash-filter-hint">{hint}</p> : null}
       <div
         ref={bodyRef}
-        className={["dash-filter-body", "is-query", sliding ? "is-sliding" : null].filter(Boolean).join(" ")}
+        className={["dash-filter-body", "is-query", actions ? "has-actions" : null, sliding ? "is-sliding" : null].filter(Boolean).join(" ")}
         style={{ "--dash-filter-cols": colCount } as CSSProperties}
         onTransitionEnd={onBodyTransitionEnd}
       >
@@ -230,10 +233,14 @@ export function DashFilterPanel({
               <DownOutlined className={morePhase === "closed" ? undefined : "is-flipped"} />
             </Button>
           ) : null}
-          <Button onClick={onReset}>重置</Button>
-          <Button type="primary" htmlType="submit" loading={loading}>
-            查询
-          </Button>
+          {actions ?? (
+            <>
+              <Button onClick={onReset}>重置</Button>
+              <Button type="primary" htmlType="submit" loading={loading}>
+                查询
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </form>

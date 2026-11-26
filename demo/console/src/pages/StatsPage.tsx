@@ -6,6 +6,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { DurationRing } from "../charts/DurationRing";
 import { TrendChart } from "../charts/TrendChart";
 import { RobotMemberAvatars } from "../components/RobotMemberAvatars";
+import { RunLogDrawer } from "../components/RunLogDrawer";
+import { TimelineCard } from "../components/TimelineCard";
 import { CurrentTaskBody, RecentCard, type ListState } from "../components/StatsBlocks";
 import { loadMotion } from "../lib/consolePrefs";
 import { QUEUE_PATH, queuePath, RECORDS_RUNNING_PATH, WORKERS_PATH } from "../lib/statsLinks";
@@ -179,6 +181,7 @@ export function StatsPage() {
   const endIso = range[1].format("YYYY-MM-DD");
   const endsToday = range[1].isSame(dayjs(), "day");
   const [open, setOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
   const [ready, setReady] = useState(seen);
   const [grown, setGrown] = useState(seen || reduce);
   const [enter, setEnter] = useState(!seen && !reduce);
@@ -327,7 +330,9 @@ export function StatsPage() {
                   <Popconfirm title="确定停止当前任务？" okText="停止" okButtonProps={{ danger: true }} cancelText="取消">
                     <Button danger>停止</Button>
                   </Popconfirm>
-                  <Button type="link">运行日志</Button>
+                  <Button type="link" onClick={() => setLogOpen(true)}>
+                    运行日志
+                  </Button>
                 </>
               ) : null}
               {ready && hasBatch ? <Button type="link">详情</Button> : null}
@@ -363,6 +368,7 @@ export function StatsPage() {
             <SkelBody lines={2} />
           )}
         </article>
+        <TimelineCard loading={!grown} empty={params.get("timeline") === "empty"} />
         <div className="stats-col stats-col--left">
           <article className="stats-card">
             <h2>运行趋势 · {days} 天</h2>
@@ -591,6 +597,7 @@ export function StatsPage() {
           </article>
         </div>
       </div>
+      <RunLogDrawer open={logOpen} onClose={() => setLogOpen(false)} />
       <Drawer title="指标口径" open={open} onClose={() => setOpen(false)} size="large">
         <Typography.Paragraph>
           问候卡只留一句。影子、重试、跳过为什么不进比率，电子税局四个任务为什么算正式交付，以及「没测」为什么不是 0，都在下面。

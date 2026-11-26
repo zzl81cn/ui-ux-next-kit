@@ -35,38 +35,167 @@ body {
 }
 
 .console-login {
+  position: relative;
+  box-sizing: border-box;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  overflow: hidden;
   background:
-    radial-gradient(circle 280px at 10% 11%, rgb(22 93 255 / 22%), transparent 72%),
-    radial-gradient(circle 250px at 93% 33%, rgb(222 104 255 / 20%), transparent 72%),
-    radial-gradient(circle 210px at 67% 88%, rgb(0 191 159 / 18%), transparent 72%),
-    linear-gradient(73deg, #f7faff, #eef4ff);
+    radial-gradient(ellipse 50% 52% at 12% 92%, rgb(0 191 159 / 16%), transparent 70%),
+    radial-gradient(ellipse 46% 50% at 88% 58%, rgb(168 85 247 / 16%), transparent 70%),
+    radial-gradient(ellipse 90% 70% at 50% -18%, rgb(22 93 255 / 24%), transparent 70%),
+    linear-gradient(180deg, #f8faff, #ebf1ff);
 }
 
 html[data-console-theme="dark"] .console-login {
   background:
-    radial-gradient(circle 280px at 10% 11%, rgb(22 93 255 / 22%), transparent 72%),
-    radial-gradient(circle 250px at 93% 33%, rgb(222 104 255 / 16%), transparent 72%),
-    radial-gradient(circle 210px at 67% 88%, rgb(0 191 159 / 14%), transparent 72%),
-    linear-gradient(73deg, #17171a, #1c2433);
+    radial-gradient(ellipse 50% 52% at 12% 92%, rgb(0 191 159 / 16%), transparent 70%),
+    radial-gradient(ellipse 46% 50% at 88% 58%, rgb(168 85 247 / 18%), transparent 70%),
+    radial-gradient(ellipse 90% 70% at 50% -18%, rgb(22 93 255 / 34%), transparent 70%),
+    linear-gradient(180deg, #0e1118, #131a2b);
+}
+
+/* 极光画布的点阵和光球：在渐变之上、卡片之下，不接指针 */
+.console-login__canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* 点阵：画布层的 ::before + mask，往边缘和下方渐隐，只在卡片周围可见 */
+.console-login__canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgb(22 93 255 / 32%) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 38%, #000, transparent);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 38%, #000, transparent);
+}
+
+html[data-console-theme="dark"] .console-login__canvas::before {
+  background-image: radial-gradient(circle, rgb(147 180 255 / 28%) 1px, transparent 1px);
+}
+
+.console-login__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  will-change: transform;
+}
+
+.console-login__orb--a {
+  left: 18%;
+  top: 14%;
+  width: clamp(220px, 28vw, 400px);
+  height: clamp(220px, 28vw, 400px);
+  background: rgb(22 93 255 / 26%);
+  animation: console-login-orb-a 14s ease-in-out infinite alternate;
+}
+
+.console-login__orb--b {
+  right: 16%;
+  bottom: 12%;
+  width: clamp(200px, 24vw, 340px);
+  height: clamp(200px, 24vw, 340px);
+  background: rgb(222 104 255 / 22%);
+  animation: console-login-orb-b 17s ease-in-out infinite alternate;
+}
+
+html[data-console-theme="dark"] .console-login__orb--a {
+  background: rgb(22 93 255 / 30%);
+}
+
+html[data-console-theme="dark"] .console-login__orb--b {
+  background: rgb(222 104 255 / 18%);
+}
+
+@keyframes console-login-orb-a {
+  to { transform: translate(48px, 36px) scale(1.08); }
+}
+
+@keyframes console-login-orb-b {
+  to { transform: translate(-44px, -32px) scale(1.1); }
 }
 
 .console-login-card {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
   box-sizing: border-box;
   width: min(400px, 100%);
-  background: #fff;
+  background: rgb(255 255 255 / 86%);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border: 1px solid rgb(255 255 255 / 70%);
   border-radius: 12px;
   padding: 32px 28px 28px;
-  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 40px rgb(15 23 42 / 10%);
 }
 
 html[data-console-theme="dark"] .console-login-card {
-  background: #1f1f1f;
-  box-shadow: none;
+  background: rgb(31 31 31 / 78%);
+  border-color: rgb(255 255 255 / 8%);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 35%);
+}
+
+/* 指针光晕：在卡片背景之上、内容之下，随圆角裁切；进出 0.3s 淡入淡出；无悬停设备和减弱动效不画 */
+.console-login-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(circle 340px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgb(22 93 255 / 13%), rgb(139 92 246 / 7%) 42%, transparent);
+}
+
+html[data-console-theme="dark"] .console-login-card::before {
+  background: radial-gradient(circle 340px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgb(91 141 239 / 22%), rgb(167 139 250 / 11%) 42%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .console-login-card:hover::before {
+    opacity: 1;
+  }
+}
+
+/* 标题渐变字：100° 渐变，背景宽 220%，9 秒左右平移往返；标签不跟着变色 */
+.console-login-title__text {
+  background: linear-gradient(100deg, #165dff, #8b5cf6 38%, #00b8a0 68%, #165dff);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: console-login-title-flow 9s ease-in-out infinite;
+}
+
+html[data-console-theme="dark"] .console-login-title__text {
+  background-image: linear-gradient(100deg, #5b8def, #b794f6 38%, #2dd4bf 68%, #5b8def);
+}
+
+@keyframes console-login-title-flow {
+  0%,
+  100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-login__orb,
+  .console-login-title__text {
+    animation: none;
+  }
+
+  .console-login-card::before {
+    display: none;
+  }
 }
 
 .console-login-mark,
@@ -1727,30 +1856,35 @@ html[data-console-theme="dark"] .activity-log__item {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   gap: 16px;
   align-items: start;
 }
 
-/* 三列时「当前任务」占左、中两列；左栏、中栏接在它下面，右栏从顶上通到底 */
+/* 三列：「当前任务」、执行时间轴依次占左、中两列；左栏、中栏接在它们下面，右栏从顶上通到底 */
 .stats-current-card {
   grid-column: 1 / 3;
   grid-row: 1;
 }
 
+.stats-timeline-card {
+  grid-column: 1 / 3;
+  grid-row: 2;
+}
+
 .stats-col--left {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 3;
 }
 
 .stats-col--mid {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 3;
 }
 
 .stats-col--right {
   grid-column: 3;
-  grid-row: 1 / 3;
+  grid-row: 1 / 4;
 }
 
 .stats-col {
@@ -2195,64 +2329,49 @@ html[data-console-theme="dark"] .rate-row:hover .rate-detail {
   box-shadow: 0 2px 6px rgba(15, 23, 32, 0.16);
 }
 
+/* 两列：当前任务、执行时间轴各占整行；左列叠左栏、中栏，右列是右栏。显式网格，不用 CSS 多列 */
 @container stats (max-width: 1039px) {
   .stats-grid {
-    display: block;
-    column-count: 2;
-    column-gap: 16px;
-    column-fill: balance;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto auto 1fr;
   }
 
-  .stats-col {
-    display: contents;
+  .stats-grid > .stats-current-card,
+  .stats-grid > .stats-timeline-card {
+    grid-column: 1 / 3;
   }
 
-  .stats-col > * {
-    display: inline-block;
-    width: 100%;
-    margin-bottom: 16px;
-    break-inside: avoid;
+  .stats-grid > .stats-timeline-card {
+    grid-row: 2;
   }
 
-  .stats-col > .stats-health {
-    display: flex;
+  .stats-grid > .stats-col--left {
+    grid-column: 1;
+    grid-row: 3;
   }
 
-  /* 两列时当前任务横跨两列，放在最上面，下面的卡片再分两列 */
-  .stats-grid > .stats-current-card {
-    display: block;
-    column-span: all;
-    margin-bottom: 16px;
+  .stats-grid > .stats-col--mid {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .stats-grid > .stats-col--right {
+    grid-column: 2;
+    grid-row: 3 / 5;
   }
 }
 
 @container stats (max-width: 639px) {
   .stats-grid {
-    display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: none;
-    column-count: auto;
   }
 
   .stats-grid > .stats-current-card,
+  .stats-grid > .stats-timeline-card,
   .stats-grid > .stats-col {
     grid-column: auto;
     grid-row: auto;
-  }
-
-  .stats-grid > .stats-current-card {
-    margin-bottom: 0;
-  }
-
-  .stats-col {
-    display: flex;
-  }
-
-  .stats-col > * {
-    display: block;
-    width: auto;
-    margin-bottom: 0;
-    break-inside: auto;
   }
 }
 
@@ -3688,23 +3807,58 @@ html[data-console-theme="dark"] .stats-health .stats-health-title {
   gap: 10px;
 }
 
+.task-bar {
+  --task-done: #73d13d;
+  --task-failed: #ff4d4f;
+  --task-skipped: #bfbfbf;
+  --task-running: #69b1ff;
+  --task-stripe: rgba(255, 255, 255, 0.18);
+  --task-flow: rgba(255, 255, 255, 0.22);
+  --task-rest: rgba(127, 127, 127, 0.14);
+}
+
+/* 深色下改用首页色板，和旁边用时占比环的绿、趋势图的粉同一组；斜纹降到 10% / 13%，空轨道底 7% 白 */
+html[data-console-theme="dark"] .task-bar {
+  --task-done: #22c55e;
+  --task-failed: #ec4899;
+  --task-skipped: #8b919a;
+  --task-running: #3b82f6;
+  --task-stripe: rgba(255, 255, 255, 0.1);
+  --task-flow: rgba(255, 255, 255, 0.13);
+  --task-rest: rgba(255, 255, 255, 0.07);
+}
+
 .task-bar__track {
+  display: flex;
   flex: 1;
   min-width: 0;
   height: 18px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(127, 127, 127, 0.14);
+  background: var(--task-rest);
 }
 
+/* 有颜色的那一截 = 已处理占比；右边的空轨道是 .task-bar__rest，不画色 */
 .task-bar__segs {
+  position: relative;
   display: flex;
+  flex: none;
   height: 100%;
   overflow: hidden;
   transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* 每段盖 7px 白 18% 斜纹：20px 方格里四条斜带，每条垂直宽约 7px */
+.task-bar__segs.is-live {
+  transition: width 0.35s ease;
+}
+
+.task-bar__rest {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 每段盖 7px 静态斜纹：20px 方格里四条斜带，每条垂直宽约 7px */
 .task-bar__seg {
   display: block;
   flex: none;
@@ -3712,16 +3866,33 @@ html[data-console-theme="dark"] .stats-health .stats-health-title {
   height: 100%;
   background-image: linear-gradient(
     -45deg,
-    rgba(255, 255, 255, 0.18) 25%,
+    var(--task-stripe) 25%,
     transparent 25%,
     transparent 50%,
-    rgba(255, 255, 255, 0.18) 50%,
-    rgba(255, 255, 255, 0.18) 75%,
+    var(--task-stripe) 50%,
+    var(--task-stripe) 75%,
     transparent 75%,
     transparent
   );
   background-size: 20px 20px;
   transition: width 0.35s ease;
+}
+
+.task-bar__seg--done {
+  background-color: var(--task-done);
+}
+
+.task-bar__seg--failed {
+  background-color: var(--task-failed);
+}
+
+.task-bar__seg--skipped {
+  background-color: var(--task-skipped);
+}
+
+.task-bar__seg--running {
+  min-width: 8px;
+  background-color: var(--task-running);
 }
 
 .task-bar__seg.is-first {
@@ -3736,18 +3907,23 @@ html[data-console-theme="dark"] .stats-health .stats-health-title {
   border-radius: 9px;
 }
 
-/* 只有执行机真在跑，斜纹才向右流动：单元 20px，0.9s 线性无限循环，白 22% */
-.task-bar__seg.is-flow {
+/* 执行机真在跑：整段有颜色的已处理部分一起向右流动。斜纹盖在外层上，各段交界处纹路连续；空轨道不动 */
+.task-bar__segs.is-flow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background-image: linear-gradient(
     -45deg,
-    rgba(255, 255, 255, 0.22) 25%,
+    var(--task-flow) 25%,
     transparent 25%,
     transparent 50%,
-    rgba(255, 255, 255, 0.22) 50%,
-    rgba(255, 255, 255, 0.22) 75%,
+    var(--task-flow) 50%,
+    var(--task-flow) 75%,
     transparent 75%,
     transparent
   );
+  background-size: 20px 20px;
   animation: task-bar-flow 0.9s linear infinite;
 }
 
@@ -3792,7 +3968,7 @@ html[data-console-theme="dark"] .stats-health .stats-health-title {
     transition: none;
   }
 
-  .task-bar__seg.is-flow {
+  .task-bar__segs.is-flow::after {
     animation: none;
   }
 }
@@ -3813,4 +3989,197 @@ html[data-console-theme="dark"] .stats-health .stats-health-title {
   color: var(--ant-color-text-disabled);
   opacity: 1;
   cursor: not-allowed;
+}
+
+/* ---------- 执行时间轴 ---------- */
+.stats-timeline__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-timeline__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
+}
+
+.stats-timeline__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats-timeline__key i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.stats-timeline__hint {
+  margin-left: auto;
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
+}
+
+.stats-timeline__chart {
+  width: 100%;
+}
+
+.stats-timeline__more {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
+}
+
+/* ---------- 运行日志抽屉 ---------- */
+.run-log {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.run-log__now {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.run-log__now .ant-tag,
+.run-log__state .ant-tag {
+  margin: 0;
+}
+
+.run-log__raw {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ant-color-text-secondary);
+  font-size: 13px;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.run-log__switch {
+  display: flex;
+  align-items: center;
+  height: 34px;
+}
+
+.run-log .dash-filter-body.is-query.has-actions {
+  grid-template-columns: repeat(calc(var(--dash-filter-cols, 3) - 1), minmax(0, 1fr)) max-content;
+}
+
+.run-log__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -4px;
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
+}
+
+.run-log__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.run-log__tools {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.run-log__tools .ant-btn {
+  height: 28px;
+  padding-inline: 8px;
+  font-size: 12px;
+}
+
+.run-log__tools .ant-btn.is-on,
+.run-log__tools .ant-btn.is-on:hover {
+  color: var(--ant-color-primary);
+}
+
+.run-log__box {
+  box-sizing: border-box;
+  height: 460px;
+  padding: 8px 10px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #141414;
+  color: rgba(255, 255, 255, 0.85);
+  font: 12px/18px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.run-log__box.is-animating {
+  transition: height 0.28s ease;
+}
+
+.run-log__line {
+  display: flex;
+  gap: 8px;
+  white-space: pre-wrap;
+}
+
+.run-log__line > b {
+  flex: none;
+  width: 42px;
+  font-weight: 600;
+}
+
+.run-log__line > span:first-child {
+  flex: none;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.run-log__line.is-warn > b,
+.run-log__line.is-warn > span:last-child {
+  color: #ffc53d;
+}
+
+.run-log__line.is-error > b,
+.run-log__line.is-error > span:last-child {
+  color: #ff7875;
+}
+
+.run-log__empty {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* 弹窗最大化：宽 min(1200px, 100vw - 48px)，高 100vh - 48px，日志框撑满不超出。antd 6 的弹窗外壳是 .ant-modal-container */
+.run-log-modal .ant-modal {
+  top: 24px;
+  padding-bottom: 0;
+}
+
+.run-log-modal .ant-modal-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 48px);
+}
+
+.run-log-modal .ant-modal-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.run-log.is-modal {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.run-log.is-modal .run-log__box {
+  flex: 1;
+  height: auto;
+  min-height: 0;
 }

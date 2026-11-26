@@ -8,6 +8,8 @@ Cursor Agent Skill。同事打开本文件。Cursor 读 `SKILL.md`。写界面�
 
 在线体验：<https://zzl81cn.github.io/ui-ux-next-kit/>（账号 `demo`，密码已预填，验证码照图填；登录后进「数据统计」）。
 
+契约自 0.0.5 起，登录页是极光画布（五层加两颗漂浮光球）、渐变标题、彩色验证码和跟随指针的光晕，数据统计在「当前任务」下面多一张「执行时间轴」。下面两张截图和 `demo/console` 已按这一版重做。在线演示要等 `main` 推送后由 Pages 重新部署才会更新。
+
 | 登录页 | 数据统计 |
 | --- | --- |
 | ![登录页](https://raw.githubusercontent.com/zzl81cn/ui-ux-next-kit/main/docs/images/login.png) | ![数据统计](https://raw.githubusercontent.com/zzl81cn/ui-ux-next-kit/main/docs/images/stats.png) |
@@ -58,11 +60,11 @@ cd demo/console && pnpm install && pnpm dev
 
 打开 `http://127.0.0.1:5174/#/login`。账号密码任意非空，验证码看图片上的字符。演示里的产品名是「管理控制台」，Logo 和 favicon 是套件自带的默认图。
 
-演示里这两处还没对齐，不要当成契约：运行日志没有 960px 那只，窄屏下的详情也还没改成底部弹层（执行记录的「详情」已有 760px 抽屉，内容是简版字段表）。「管理机器人」穿梭弹层已按契约做了（执行机页点组内头像进入）。
+演示里这两处还没对齐，不要当成契约：窄屏下的详情还没改成底部弹层（执行记录的「详情」已有 760px 抽屉，内容是简版字段表；数据统计「当前任务」的运行日志已有 960px 抽屉，窄屏同样还没改成底部弹层）。「管理机器人」穿梭弹层已按契约做了（执行机页点组内头像进入）。
 
 ## 发布和应用
 
-当前发布版本是 `0.0.4`，页面是 https://www.npmjs.com/package/ui-ux-next-kit 。`latest` 指向这一版。注册表上的 `0.0.0-stage` 是 npm 的占位版本，不要安装，也不要删除。
+当前发布版本是 `0.0.5`，页面是 https://www.npmjs.com/package/ui-ux-next-kit 。`latest` 指向这一版。注册表上的 `0.0.0-stage` 是 npm 的占位版本，不要安装，也不要删除。
 
 Cursor 读的仍是 `SKILL.md`。npm 包负责把这份目录挂进项目，并让后续版本能被 `npm update` 拉下来。包里有契约、脚本、规则和示例。`demo/` 留在 Git 仓库，不进 npm 包。同事要看可运行的演示，克隆仓库后按下面的「演示」一节启动。
 

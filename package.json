@@ -18,6 +18,10 @@
     "examples"
   ],
   "scripts": {
+    "dev": "pnpm --filter console-demo dev",
+    "build": "pnpm --filter console-demo build",
+    "build:demo": "pnpm --filter console-demo build",
+    "typecheck": "pnpm --filter console-demo typecheck",
     "postinstall": "node bin/cli.js install --from-postinstall"
   },
   "engines": {

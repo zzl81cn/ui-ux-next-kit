@@ -64,7 +64,7 @@ cd demo/console && pnpm install && pnpm dev
 
 ## 发布和应用
 
-当前发布版本是 `0.0.5`，页面是 https://www.npmjs.com/package/ui-ux-next-kit 。`latest` 指向这一版。注册表上的 `0.0.0-stage` 是 npm 的占位版本，不要安装，也不要删除。
+当前发布版本是 `0.0.6`，页面是 https://www.npmjs.com/package/ui-ux-next-kit 。`latest` 指向这一版。注册表上的 `0.0.0-stage` 是 npm 的占位版本，不要安装，也不要删除。
 
 Cursor 读的仍是 `SKILL.md`。npm 包负责把这份目录挂进项目，并让后续版本能被 `npm update` 拉下来。包里有契约、脚本、规则和示例。`demo/` 留在 Git 仓库，不进 npm 包。同事要看可运行的演示，克隆仓库后按下面的「演示」一节启动。
 

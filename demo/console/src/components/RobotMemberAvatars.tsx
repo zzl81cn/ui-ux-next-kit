@@ -1,5 +1,6 @@
 import { Avatar, Popover, Tag, Typography } from "antd";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useRef } from "react";
+import { useAvatarFisheye } from "../hooks/useAvatarFisheye";
 import { avatarLetters, avatarTone } from "../lib/avatarTone";
 
 /** 顶栏、当前任务、分组表共用的一颗圆。 */
@@ -201,8 +202,10 @@ function GroupVariant({
 }) {
   const visible = members.slice(0, maxCount);
   const rest = members.slice(maxCount);
-  const lastIndex = visible.length + (rest.length > 0 ? 1 : 0) - 1;
+  const hostRef = useRef<HTMLSpanElement>(null);
+  useAvatarFisheye(hostRef);
   return (
+    <span className="robot-fisheye" ref={hostRef}>
     <Avatar.Group
       className={["robot-member-avatars", "robot-member-avatars--group", cradle ? "robot-member-avatars--cradle" : ""]
         .filter(Boolean)
@@ -216,7 +219,6 @@ function GroupVariant({
           robot={robot}
           size={size}
           stackIndex={index}
-          className={index === lastIndex ? "is-tail" : undefined}
           onManage={onManage}
           manageLabel={manageLabel}
           showStatusDot={showStatusDot}
@@ -233,7 +235,7 @@ function GroupVariant({
           content={<OverflowList members={rest} onManage={onManage} manageLabel={manageLabel} size={size} />}
         >
           <span
-            className="robot-member-avatar robot-member-avatar--more is-tail"
+            className="robot-member-avatar robot-member-avatar--more"
             style={{ "--i": visible.length } as CSSProperties}
             tabIndex={0}
             aria-label={`还有 ${rest.length} 台`}
@@ -252,6 +254,7 @@ function GroupVariant({
         </Popover>
       ) : null}
     </Avatar.Group>
+    </span>
   );
 }
 

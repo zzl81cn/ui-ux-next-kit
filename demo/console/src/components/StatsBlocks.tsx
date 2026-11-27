@@ -2,6 +2,7 @@ import { Button, Empty, Tabs, Tag, Typography } from "antd";
 import dayjs from "dayjs";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { queueItemStyle } from "../lib/motion";
 import { batchPath, QUEUE_PATH, queuePath, RECORDS_PATH } from "../lib/statsLinks";
 import { TASK_BATCH, TASK_COUNTS, WHITELIST, type BatchRow, type BatchStatus, type QueueRow, type TaskCounts, type TaskState } from "../mock/stats";
 import { TaskProgress } from "./TaskProgress";
@@ -13,17 +14,17 @@ function CountTags({ counts, whitelist }: { counts: TaskCounts; whitelist: boole
     return (
       <>
         <div className="stats-task__line stats-task__tags">
-          <Tag>白名单 {counts.total} 户</Tag>
+          <Tag className="task-monitor-aux">白名单 {counts.total} 户</Tag>
           <Tag color="blue">待跑 {wl.todo}</Tag>
           <Tag color="success">有数据 {wl.hasData}</Tag>
           {wl.noData > 0 ? <Tag>无数据 {wl.noData}</Tag> : null}
           {wl.noAuth > 0 ? <Tag>无权限 {wl.noAuth}</Tag> : null}
-          <Typography.Text type="secondary">
+          <Typography.Text type="secondary" className="task-monitor-aux">
             已落字 {wl.written}/{counts.total}
           </Typography.Text>
         </div>
         {counts.failed > 0 || counts.queued > 0 ? (
-          <div className="stats-task__note">
+          <div className="stats-task__note task-monitor-aux">
             调度行另计：完成 {counts.done}
             {counts.failed > 0 ? ` · 历史失败行 ${counts.failed}（含旧抽表失败，不等于待跑）` : ""}
             {counts.queued > 0 ? ` · 队列未结 ${counts.queued}` : ""}。无权限 / 待跑以白名单「税费种认定」列为准。
@@ -34,10 +35,10 @@ function CountTags({ counts, whitelist }: { counts: TaskCounts; whitelist: boole
   }
   return (
     <div className="stats-task__line stats-task__tags">
-      <Tag>白名单 {counts.total} 户</Tag>
+      <Tag className="task-monitor-aux">白名单 {counts.total} 户</Tag>
       <Tag color="success">完成 {counts.done}</Tag>
       {counts.failed > 0 ? <Tag color="error">失败待重跑 {counts.failed}</Tag> : null}
-      {counts.skipped > 0 ? <Tag>调度跳过 {counts.skipped}</Tag> : null}
+      {counts.skipped > 0 ? <Tag className="task-monitor-aux">调度跳过 {counts.skipped}</Tag> : null}
       {counts.queued > 0 ? <Tag color="blue">队列未结 {counts.queued}</Tag> : null}
     </div>
   );
@@ -51,7 +52,11 @@ export function CurrentTaskBody({ state, step = 0 }: { state: TaskState; step?: 
       {batch.app}
     </Link>
   );
-  const batchLink = <Link to={batchPath(batch.id)}>批次 #{batch.id}</Link>;
+  const batchLink = (
+    <Link className="task-monitor-aux" to={batchPath(batch.id)}>
+      批次 #{batch.id}
+    </Link>
+  );
   if (state === "idle" || state === "stopped" || state === "error") {
     return (
       <div className="stats-task">
@@ -80,8 +85,16 @@ export function CurrentTaskBody({ state, step = 0 }: { state: TaskState; step?: 
           <Tag color="blue">MIS_ID {batch.misId}</Tag>
           {batch.round >= 2 ? <Tag color="purple">第 {batch.round} 轮</Tag> : null}
           <Tag color="blue">{batch.area}</Tag>
-          <Typography.Text type="secondary">机器人 {batch.robot}</Typography.Text>
-          {batch.pack ? <Tag color="success">运行包 {batch.pack}</Tag> : <Tag>仓库脚本</Tag>}
+          <Typography.Text type="secondary" className="task-monitor-aux">
+            机器人 {batch.robot}
+          </Typography.Text>
+          {batch.pack ? (
+            <Tag color="success" className="task-monitor-aux">
+              运行包 {batch.pack}
+            </Tag>
+          ) : (
+            <Tag className="task-monitor-aux">仓库脚本</Tag>
+          )}
           {batchLink}
         </div>
         <TaskProgress counts={counts} flowing />
@@ -103,7 +116,7 @@ export function CurrentTaskBody({ state, step = 0 }: { state: TaskState; step?: 
   if (state === "pending") {
     return (
       <div className="stats-task">
-        <TaskProgress empty />
+        <TaskProgress empty paused />
         <Typography.Text type="secondary">已派单，白名单进度还没回写。</Typography.Text>
       </div>
     );
@@ -120,7 +133,7 @@ export function CurrentTaskBody({ state, step = 0 }: { state: TaskState; step?: 
         <Tag color="blue">{batch.area}</Tag>
         {batchLink}
       </div>
-      <TaskProgress counts={TASK_COUNTS[failed ? "abnormal" : "unfinished"]} />
+      <TaskProgress counts={TASK_COUNTS[failed ? "abnormal" : "unfinished"]} paused={!failed} />
       <CountTags counts={TASK_COUNTS[failed ? "abnormal" : "unfinished"]} whitelist={false} />
       <Typography.Text type="secondary">
         执行器空闲{failed ? "（本批已停）" : ""}。未完成户可在高级任务计划对该任务点「开始」续跑。
@@ -197,11 +210,11 @@ export function RecentCard({
       <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有批次" />
     ) : (
       <ul className="activity-log is-zebra">
-        {batches.slice(0, rows).map((row) => {
+        {batches.slice(0, rows).map((row, rowIndex, shownBatches) => {
           const tag = BATCH_TAG[row.status];
           const at = row.at ? dayjs(row.at) : null;
           return (
-            <li className="activity-log__item" key={row.id}>
+            <li className="activity-log__item dash-queue-item" style={queueItemStyle(rowIndex, shownBatches.length)} key={row.id}>
               <span className="activity-log__date stats-recent__when">{at ? <><b>{at.format("MM-DD")}</b><small>{at.format("HH:mm")}</small></> : <b>—</b>}</span>
               <div className="activity-log__body">
                 <Link className="activity-log__title stats-recent__link" to={batchPath(row.id)}>
@@ -228,8 +241,8 @@ export function RecentCard({
       <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有队列项" />
     ) : (
       <ul className="activity-log is-zebra">
-        {queueRows.map((row) => (
-          <li className="activity-log__item" key={row.name}>
+        {queueRows.map((row, rowIndex) => (
+          <li className="activity-log__item dash-queue-item" style={queueItemStyle(rowIndex, queueRows.length)} key={row.name}>
             <div className="activity-log__body">
               <Link className="activity-log__title stats-recent__link" to={queuePath(row.name)}>
                 {row.name}

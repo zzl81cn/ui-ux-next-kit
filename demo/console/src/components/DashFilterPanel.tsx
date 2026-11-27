@@ -1,5 +1,6 @@
 import { DownOutlined } from "@ant-design/icons";
 import { Button, Input, Select } from "antd";
+import { FILTER_EXPANDED_KEY, loadFilterExpanded, saveFilterExpanded } from "../lib/filterExpanded";
 import {
   Children,
   Fragment,
@@ -54,6 +55,7 @@ export function DashFilterPanel({
   loading = false,
   columns,
   actions,
+  defaultExpanded = false,
 }: {
   hint?: string;
   children: ReactNode;
@@ -63,6 +65,8 @@ export function DashFilterPanel({
   columns?: number;
   /** 换掉默认的「重置 / 查询」（没有查询语义的面板，如运行日志）。末列按内容宽，字段均分剩余宽度。 */
   actions?: ReactNode;
+  /** 用户没操作过时的缺省态；点过一次之后所有面板都以记忆值为准 */
+  defaultExpanded?: boolean;
 }) {
   const rootRef = useRef<HTMLFormElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -71,7 +75,9 @@ export function DashFilterPanel({
   const slideGen = useRef(0);
   const slideStartedAt = useRef(0);
   const [containerWidth, setContainerWidth] = useState(1200);
-  const [morePhase, setMorePhase] = useState<"closed" | "open" | "closing">("closed");
+  // 展开态记在浏览器，刷新 / 换页直接停在记忆的那一态，不播动画
+  const [morePhase, setMorePhase] = useState<"closed" | "open" | "closing">(() => (loadFilterExpanded(defaultExpanded) ? "open" : "closed"));
+  const touched = useRef(false);
   const [sliding, setSliding] = useState(false);
 
   useLayoutEffect(() => {
@@ -88,6 +94,16 @@ export function DashFilterPanel({
     return () => observer.disconnect();
   }, []);
 
+  // 多标签页同步：只影响还没手动切换过本面板的实例
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== FILTER_EXPANDED_KEY || touched.current) return;
+      setMorePhase(event.newValue === "1" ? "open" : "closed");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const colCount = columns != null ? Math.max(1, columns) : columnsFor(containerWidth);
   const fields = flattenFields(children);
   const visibleWhenCollapsed = Math.max(1, colCount - 1);
@@ -102,6 +118,8 @@ export function DashFilterPanel({
   const toggleMore = () => {
     const el = bodyRef.current;
     if (!el) return;
+    touched.current = true;
+    saveFilterExpanded(morePhase === "closed" || morePhase === "closing");
     if (prefersReducedMotion()) {
       el.style.height = "";
       el.style.overflow = "";

@@ -1,3 +1,4 @@
+import { PageHelpTip } from "../components/PageHelpTip";
 import {
   ApartmentOutlined,
   AuditOutlined,
@@ -243,7 +244,14 @@ export function MenusPage() {
       </DashFilterPanel>
       <ProTable<MenuNode>
         className="console-pro-table"
-        headerTitle={`菜单（${countMenus(view)}）`}
+        headerTitle={
+          <span style={{ display: "inline-flex", alignItems: "center" }}>
+            {`菜单（${countMenus(view)}）`}
+            <PageHelpTip title="菜单怎么用">
+              菜单树决定侧栏显示哪些入口。目录下可以放子菜单，隐藏的菜单不在侧栏出现，但路由仍然可以访问。
+            </PageHelpTip>
+          </span>
+        }
         rowKey="id"
         columns={columns}
         dataSource={view}

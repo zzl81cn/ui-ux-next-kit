@@ -90,25 +90,35 @@ export function saveRefresh(next: RefreshSettings) {
 }
 
 const MOTION_KEY = "demo-motion-delay";
+const CARD_GAP_KEY = "demo-motion-card-gap";
 
-export type MotionSettings = { chartDelayMs: number };
+/** chartDelayMs：图表进场延迟（0–2000，缺省 100）；cardGapMs：卡片依次进场间隔（0–200，缺省 70，0 = 不排队） */
+export type MotionSettings = { chartDelayMs: number; cardGapMs: number };
 
-export const defaultMotion: MotionSettings = { chartDelayMs: 100 };
+export const defaultMotion: MotionSettings = { chartDelayMs: 100, cardGapMs: 70 };
+
+function readNumber(key: string, fallback: number, min: number, max: number) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null || raw === "") return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(parsed)));
+  } catch {
+    return fallback;
+  }
+}
 
 export function loadMotion(): MotionSettings {
-  try {
-    const raw = localStorage.getItem(MOTION_KEY);
-    if (raw == null || raw === "") return { ...defaultMotion };
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return { ...defaultMotion };
-    return { chartDelayMs: Math.min(2000, Math.max(0, Math.round(parsed))) };
-  } catch {
-    return { ...defaultMotion };
-  }
+  return {
+    chartDelayMs: readNumber(MOTION_KEY, defaultMotion.chartDelayMs, 0, 2000),
+    cardGapMs: readNumber(CARD_GAP_KEY, defaultMotion.cardGapMs, 0, 200),
+  };
 }
 
 export function saveMotion(next: MotionSettings) {
   localStorage.setItem(MOTION_KEY, String(next.chartDelayMs));
+  localStorage.setItem(CARD_GAP_KEY, String(next.cardGapMs));
 }
 
 export type PublishStatus = {

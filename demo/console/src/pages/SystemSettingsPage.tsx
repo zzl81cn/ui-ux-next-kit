@@ -378,7 +378,7 @@ function MotionTab() {
       className="console-settings-form"
       layout="vertical"
       initialValues={loadMotion()}
-      onFinish={async (values: { chartDelayMs: number }) => {
+      onFinish={async (values: { chartDelayMs: number; cardGapMs: number }) => {
         setSaving(true);
         try {
           await Promise.resolve();
@@ -398,6 +398,13 @@ function MotionTab() {
           extra="「数据统计」数据到达后等多久，运行趋势、用时占比环图、数字跳动和条形生长一起开始。0–2000，默认 100。系统开启「减少动态效果」时不等待。只对当前浏览器生效。"
         >
           <InputNumber min={0} max={2000} step={50} style={{ width: 200 }} />
+        </Form.Item>
+        <Form.Item
+          name="cardGapMs"
+          label="卡片依次进场间隔（毫秒）"
+          extra="「数据统计」打开时，卡片按版面顺序一张接一张上浮出现，相邻两张隔多久。0–200，默认 70；0 表示不排队，整页一起出现。卡片多时整条队列最长约 0.9 秒，间隔会自动压小。系统开启「减少动态效果」时不排队。只对当前浏览器生效。"
+        >
+          <InputNumber min={0} max={200} step={10} style={{ width: 200 }} />
         </Form.Item>
       </div>
       <div className="console-settings-action-bar">

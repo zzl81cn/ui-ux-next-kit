@@ -1,6 +1,8 @@
 import { Tooltip } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { prefersReducedMotion } from "../lib/motion";
 import type { TaskCounts } from "../mock/stats";
+import { TweenNumber } from "./TweenNumber";
 
 /** 段色在 CSS 里按主题取（浅色一组、深色换首页色板），这里只管顺序和提示文案 */
 const SEGMENTS = [
@@ -10,62 +12,27 @@ const SEGMENTS = [
   { key: "running", label: (n: number) => `运行中 ${n}` },
 ] as const;
 
-function reduced() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/** 胶囊数字：第一次从 0 跳到目标（700ms，前快后收），只跳这一次。之后直接显示新数，不回 0。减少动效直接是终值。 */
-function usePillNumber(target: number, armed: boolean) {
-  const [value, setValue] = useState(reduced() ? target : 0);
-  const phase = useRef<"idle" | "jumping" | "done">(reduced() ? "done" : "idle");
-  const latest = useRef(target);
-  latest.current = target;
-
-  useEffect(() => {
-    if (!armed || phase.current !== "idle") return;
-    phase.current = "jumping";
-    let frame = 0;
-    let started = 0;
-    const tick = (now: number) => {
-      started ||= now;
-      const t = Math.min(1, (now - started) / 700);
-      setValue(Math.round(latest.current * (1 - (1 - t) ** 4)));
-      if (t < 1) frame = window.requestAnimationFrame(tick);
-      else phase.current = "done";
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      if (phase.current === "jumping") phase.current = "idle";
-    };
-  }, [armed]);
-
-  useEffect(() => {
-    if (phase.current === "done") setValue(target);
-  }, [target]);
-
-  return value;
-}
+const reduced = prefersReducedMotion;
 
 /**
  * 当前任务的进度条：分段堆叠条，不是 antd Progress。
  * 轨道代表这一批的总数，有颜色的那一截 = 已处理（完成 + 失败 + 跳过），长度就是右边的百分比，
  * 里面按完成 / 失败 / 跳过分段；执行机真在跑时，最后多一小段「运行中」（最窄 8px）。未结的排队部分不画色，是空轨道。
- * 百分比胶囊在轨道外面，写已处理占比。flowing：执行机真在跑时，有颜色的整段一起向右流动。empty：还没有数据，只画空轨道，胶囊 0%。
+ * 百分比胶囊在轨道外面，写已处理占比（数字补间，不回 0）。paused：有进度但此刻没在执行（派单待领、执行器空闲的未完成批次）时整条轨道呼吸。flowing：执行机真在跑时，有颜色的整段一起向右流动。empty：还没有数据，只画空轨道，胶囊 0%。
  */
-export function TaskProgress({ counts, flowing, empty }: { counts?: TaskCounts; flowing?: boolean; empty?: boolean }) {
+export function TaskProgress({ counts, flowing, empty, paused }: { counts?: TaskCounts; flowing?: boolean; empty?: boolean; paused?: boolean }) {
   const total = counts ? Math.max(1, counts.total || counts.done + counts.failed + counts.skipped + counts.queued) : 1;
   const settled = counts && !empty ? counts.done + counts.failed + counts.skipped : 0;
   const running = counts && !empty && flowing ? Math.min(counts.running ?? 0, counts.queued) : 0;
   const filled = settled + running;
   const percent = empty || !counts ? 0 : Math.round((settled / total) * 100);
 
-  // 数据第一次到了（约 60ms 后），有颜色的部分从 0 长到已处理占比（600ms）；之后只用 0.35s 平滑变宽
+  // 数据第一次到了（等所在那一行淡入出来，约 300ms 后），有颜色的部分从 0 长到已处理占比（600ms）；之后只用 0.35s 平滑变宽
   const [grown, setGrown] = useState(reduced());
   const [live, setLive] = useState(reduced());
   useEffect(() => {
     if (empty || grown) return;
-    const timer = window.setTimeout(() => setGrown(true), 60);
+    const timer = window.setTimeout(() => setGrown(true), 300);
     return () => window.clearTimeout(timer);
   }, [empty, grown]);
   useEffect(() => {
@@ -74,7 +41,6 @@ export function TaskProgress({ counts, flowing, empty }: { counts?: TaskCounts; 
     return () => window.clearTimeout(timer);
   }, [grown, live]);
 
-  const shown = usePillNumber(percent, !empty && grown);
   const segs = counts && !empty ? SEGMENTS.filter((seg) => (seg.key === "running" ? running : counts[seg.key]) > 0) : [];
   const amount = (key: (typeof SEGMENTS)[number]["key"]) => (key === "running" ? running : counts![key]);
   const aria = counts
@@ -90,7 +56,7 @@ export function TaskProgress({ counts, flowing, empty }: { counts?: TaskCounts; 
     : "已处理 0 / 0";
 
   return (
-    <div className="task-bar">
+    <div className={paused ? "task-bar is-paused" : "task-bar"}>
       <div className="task-bar__track" role="img" aria-label={aria}>
         <div
           className={["task-bar__segs", flowing && filled > 0 ? "is-flow" : "", live ? "is-live" : ""].filter(Boolean).join(" ")}
@@ -116,7 +82,9 @@ export function TaskProgress({ counts, flowing, empty }: { counts?: TaskCounts; 
         </Tooltip>
       </div>
       <Tooltip title={pillTip}>
-        <span className="task-bar__pill">{empty ? 0 : shown}%</span>
+        <span className="task-bar__pill">
+          <TweenNumber value={!empty && grown ? percent : 0} />%
+        </span>
       </Tooltip>
     </div>
   );

@@ -9,7 +9,11 @@ import { RobotMemberAvatars } from "../components/RobotMemberAvatars";
 import { RunLogDrawer } from "../components/RunLogDrawer";
 import { TimelineCard } from "../components/TimelineCard";
 import { CurrentTaskBody, RecentCard, type ListState } from "../components/StatsBlocks";
+import { TweenNumber } from "../components/TweenNumber";
+import { useCardQueue } from "../hooks/useCardQueue";
 import { loadMotion } from "../lib/consolePrefs";
+import { formatBytes } from "../lib/formatBytes";
+import { queueItemStyle } from "../lib/motion";
 import { QUEUE_PATH, queuePath, RECORDS_RUNNING_PATH, WORKERS_PATH } from "../lib/statsLinks";
 import {
   FAIL_QUEUES,
@@ -29,8 +33,24 @@ import { ActivityPanel } from "./ActivityPanel";
 const DAYS_KEY = "demo-stats-days";
 const MAX_SPAN = 366;
 /** 演示里「数据到了」的时间：这之前是骨架 */
-const DATA_MS = 300;
+/** 演示「四样齐才就绪」：四路 mock 各自到齐的延迟（ms），最晚一到才揭开骨架 */
+const PART_MS = { host: 80, batches: 140, log: 200, detail: 280 } as const;
 const RATE_COLORS = ["#6d5efc", "#3b82f6", "#22c55e", "#ff8a3d", "#ec4899", "#2dd4bf"];
+
+const TASK_H_KEY = "demo-task-body-height";
+
+/** 「当前任务」凑齐数据前只画骨架：与正文同形状的四行（22 / 16 / 22 / 22，行距 8），总高取上次正文的实际高度（没有记录 144），数据到了原位换上，卡片高度不跳 */
+function TaskSkeleton() {
+  const saved = Number(localStorage.getItem(TASK_H_KEY));
+  const total = Number.isFinite(saved) && saved > 0 ? saved : 144;
+  return (
+    <div className="task-skel" style={{ minHeight: total }} aria-hidden="true">
+      {[22, 16, 22, 22].map((height, index) => (
+        <i key={index} className="skel-line" style={{ height, width: ["62%", "100%", "48%", "78%"][index] }} />
+      ))}
+    </div>
+  );
+}
 
 function SkelBody({ height, lines = 4 }: { height?: number; lines?: number }) {
   const widths = ["100%", "72%", "88%", "56%"];
@@ -56,38 +76,6 @@ function readDays(): number {
   if (!Number.isFinite(parsed) || parsed < 1 || parsed > 30) return 30;
   return parsed;
 }
-
-type GrowOpts = { delay?: number; duration?: number; ease?: "cubic" | "quart"; replayKey?: unknown };
-
-/** 数字从 0 跳到目标整数。run 为 false 时直接是目标值。 */
-function useGrow(target: number, run: boolean, { delay = 0, duration = 600, ease = "cubic", replayKey }: GrowOpts = {}) {
-  const [value, setValue] = useState(run ? 0 : target);
-  useEffect(() => {
-    if (!run) {
-      setValue(target);
-      return;
-    }
-    setValue(0);
-    let frame = 0;
-    let started = 0;
-    const tick = (now: number) => {
-      started ||= now;
-      const t = Math.min(1, (now - started) / duration);
-      const eased = ease === "quart" ? 1 - (1 - t) ** 4 : 1 - (1 - t) ** 3;
-      setValue(Math.round(target * eased));
-      if (t < 1) frame = window.requestAnimationFrame(tick);
-    };
-    const timer = window.setTimeout(() => {
-      frame = window.requestAnimationFrame(tick);
-    }, delay);
-    return () => {
-      window.clearTimeout(timer);
-      window.cancelAnimationFrame(frame);
-    };
-  }, [run, target, delay, duration, ease, replayKey]);
-  return value;
-}
-
 
 /** 失败归因：原因名只用这张键对照表，表里没有的键直接显示键名 */
 const FAIL_LABELS: Record<string, string> = {
@@ -130,19 +118,14 @@ const TABLES = [
 const TABLE_TOTAL = TABLES.reduce((sum, row) => sum + row.bytes, 0);
 const TABLE_MAX = Math.max(...TABLES.map((row) => row.bytes));
 
-/** ≥1 GB「N.N GB」，≥1 MB「N.N MB」，≥1 KB「N KB」，否则「N B」 */
-function fmtBytes(value: number) {
-  if (value >= GB) return `${(value / GB).toFixed(1)} GB`;
-  if (value >= MB) return `${(value / MB).toFixed(1)} MB`;
-  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
-  return `${Math.round(value)} B`;
-}
-
-/** 条内百分比：700ms、1-(1-t)^4 前快后收，所有条同时起跳，不按序号错开。切窗口重新从 0 跳。 */
+/** 条内百分比：数字补间，所有条同时起跳，不按序号错开。切窗口重挂（key 变）重新从 0 跳。 */
 function RatePercent({ percent, grown, reduce, replayKey }: { percent: number; grown: boolean; reduce: boolean; replayKey: number }) {
-  const value = useGrow(percent, grown && !reduce, { duration: 700, ease: "quart", replayKey });
   // 数据到了、还没开跑时是空轨道：数字先停在 0，不露终值。减少动效直接是终值
-  return <b>{!reduce && !grown ? 0 : value}%</b>;
+  return (
+    <b>
+      <TweenNumber key={replayKey} value={reduce || grown ? percent : 0} />%
+    </b>
+  );
 }
 
 /** 7 天窗口的示例数，条目和 30 天相同，数字不同，用来看切窗口时条的过渡 */
@@ -182,11 +165,17 @@ export function StatsPage() {
   const endsToday = range[1].isSame(dayjs(), "day");
   const [open, setOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [parts, setParts] = useState({ host: seen, batches: seen, log: seen, detail: seen });
+  const settled = parts.host && parts.batches && parts.log && parts.detail;
   const [ready, setReady] = useState(seen);
   const [grown, setGrown] = useState(seen || reduce);
   const [enter, setEnter] = useState(!seen && !reduce);
   const cradle = useRef(!seen && !reduce).current;
   const [refreshing, setRefreshing] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [rowsEnter, setRowsEnter] = useState(!seen && !reduce);
+  useCardQueue(gridRef, loadMotion().cardGapMs);
   const rates = useMemo(
     () =>
       [...(days <= 7 ? RATE_ROWS_7 : RATE_ROWS)]
@@ -198,8 +187,6 @@ export function StatsPage() {
         .map((row, index) => ({ ...row, color: RATE_COLORS[index % RATE_COLORS.length] })),
     [days],
   );
-  const failCount = useGrow(3, grown && !seen && !reduce);
-  const queueCount = useGrow(QUEUED_COUNT, grown && !seen && !reduce);
   const running = task === "running" || task === "wlerror" || task === "pending";
   const hasBatch = running || task === "unfinished" || task === "abnormal";
   const runRecords = RUNNING_RECORDS[task];
@@ -207,11 +194,32 @@ export function StatsPage() {
   const chartDelay = reduce ? 0 : loadMotion().chartDelayMs;
 
   // 数据到了（骨架换成内容，色条是空轨道）→ 再等「图表进场延迟」→ 开跑
+  // 就绪后正文按行依次进场，只播一次；记下正文的实际高度给下次的骨架用
   useEffect(() => {
-    if (ready) return;
-    const timer = window.setTimeout(() => setReady(true), reduce ? 0 : DATA_MS);
+    if (!ready) return;
+    const timer = window.setTimeout(() => {
+      setRowsEnter(false);
+      const height = bodyRef.current?.offsetHeight;
+      if (height) localStorage.setItem(TASK_H_KEY, String(height));
+    }, 1200);
     return () => window.clearTimeout(timer);
-  }, [ready, reduce]);
+  }, [ready]);
+
+  // 「当前任务」凑齐四样才就绪：Host 状态、最近批次、跑批日志、盯着那批的详情。演示用错开的 timer 模拟并发到齐
+  useEffect(() => {
+    if (seen || reduce) {
+      setParts({ host: true, batches: true, log: true, detail: true });
+      return;
+    }
+    const timers = (Object.keys(PART_MS) as (keyof typeof PART_MS)[]).map((key) =>
+      window.setTimeout(() => setParts((prev) => ({ ...prev, [key]: true })), PART_MS[key]),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [seen, reduce]);
+
+  useEffect(() => {
+    if (settled) setReady(true);
+  }, [settled]);
 
   useEffect(() => {
     if (!ready || grown) return;
@@ -300,13 +308,13 @@ export function StatsPage() {
           />
         </div>
       </section>
-      <div className="stats-grid">
+      <div className="stats-grid" ref={gridRef}>
         <article className="stats-card stats-current-card">
           <div className="stats-current__head">
             <div className="stats-current__title">
               <h2>
                 <span className="stats-current__name">当前任务</span>
-                <button type="button" className="stats-help" aria-label="当前任务说明">
+                <button type="button" className="stats-help task-monitor-aux" aria-label="当前任务说明">
                   <QuestionCircleOutlined />
                 </button>
               </h2>
@@ -336,14 +344,14 @@ export function StatsPage() {
                 </>
               ) : null}
               {ready && hasBatch ? <Button type="link">详情</Button> : null}
-              <a className="stats-queue-link" href={`#${QUEUE_PATH}`}>
+              <a className="stats-queue-link task-monitor-aux" href={`#${QUEUE_PATH}`}>
                 去工作队列开跑
               </a>
             </div>
           </div>
           {ready ? (
             <>
-              <div className="stats-demo-switch">
+              <div className="stats-demo-switch task-monitor-aux">
                 <span>演示状态</span>
                 <Select
                   size="small"
@@ -362,10 +370,12 @@ export function StatsPage() {
                   </Button>
                 ) : null}
               </div>
-              <CurrentTaskBody state={task} step={step} />
+              <div ref={bodyRef} className={rowsEnter ? "stats-task-wrap is-rows-enter" : "stats-task-wrap"}>
+                <CurrentTaskBody state={task} step={step} />
+              </div>
             </>
           ) : (
-            <SkelBody lines={2} />
+            <TaskSkeleton />
           )}
         </article>
         <TimelineCard loading={!grown} empty={params.get("timeline") === "empty"} />
@@ -393,7 +403,7 @@ export function StatsPage() {
                   label: "失败待处理",
                   icon: failTotal > 0 ? "#ec489918" : "#22c55e18",
                   bar: "#ec4899",
-                  value: failTotal > 0 ? failCount : 0,
+                  value: failTotal > 0 ? <TweenNumber value={grown ? 3 : 0} /> : 0,
                   note: failTotal > 0 ? failNames.join("、") : "没有失败行",
                   to: failTo,
                   empty: true,
@@ -402,7 +412,7 @@ export function StatsPage() {
                   label: "排队中",
                   icon: "#3b82f618",
                   bar: "#3b82f6",
-                  value: queueCount,
+                  value: <TweenNumber value={grown ? QUEUED_COUNT : 0} />,
                   note: QUEUED_PENDING_EFFECT > 0 ? `另有 ${QUEUED_PENDING_EFFECT} 个待生效` : "等执行机领走",
                   to: QUEUE_PATH,
                 },
@@ -526,7 +536,6 @@ export function StatsPage() {
               ready={grown}
               animate={enter}
               auditState={listState("audit")}
-              todoState={listState("todo")}
             />
           </article>
           <article className="stats-card">
@@ -540,15 +549,15 @@ export function StatsPage() {
             </h2>
             {ready ? (
               <>
-                <p className="stats-figure">{fmtBytes(TABLE_TOTAL)}</p>
+                <p className="stats-figure">{formatBytes(TABLE_TOTAL)}</p>
                 <ul className="stats-bars">
-                  {TABLES.map((row) => (
+                  {TABLES.map((row, index) => (
                     <li key={row.name}>
                       <span title={row.name}>{row.name}</span>
                       <i>
-                        <b style={{ width: grown ? `${(row.bytes / TABLE_MAX) * 100}%` : 0 }} />
+                        <b className="dash-bar-grow" style={{ width: grown ? `${(row.bytes / TABLE_MAX) * 100}%` : 0, transitionDelay: `${index * 55}ms` }} />
                       </i>
-                      <em>{fmtBytes(row.bytes)}</em>
+                      <em>{formatBytes(row.bytes)}</em>
                     </li>
                   ))}
                 </ul>
@@ -578,8 +587,8 @@ export function StatsPage() {
                     return (
                       <li
                         key={row.key}
-                        className={enter ? "stats-item" : undefined}
-                        style={enter ? { animationDelay: `${200 + index * 55}ms` } : undefined}
+                        className="dash-queue-item"
+                        style={queueItemStyle(index, Math.min(FAILS.length, 8))}
                       >
                         <span className="fail-pct" style={{ color, background: `${color}22` }}>
                           {Math.round((row.count / FAIL_TOTAL) * 100)}%

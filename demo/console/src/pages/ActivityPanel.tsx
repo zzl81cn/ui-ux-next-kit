@@ -2,11 +2,11 @@ import { CheckOutlined, DesktopOutlined, HistoryOutlined, ThunderboltOutlined, U
 import { Button, Empty, Switch, Tabs, Typography } from "antd";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
+import { TweenNumber } from "../components/TweenNumber";
+import { prefersReducedMotion, queueItemStyle } from "../lib/motion";
 import { Link } from "react-router-dom";
 import { ActivityDailyBars } from "../charts/ActivityDailyBars";
 import { AUDIT_LOG_PATH, ADVANCED_PATH, QUEUE_PATH, RECORDS_PATH, WORKERS_PATH } from "../lib/statsLinks";
-import { useRobots } from "../mock/robots";
-import { TODO_FAILED } from "../mock/stats";
 
 const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
 
@@ -186,68 +186,43 @@ function useActivity(days: number, ready: boolean) {
   return { data, error, loading };
 }
 
-const COUNT_MS = 420;
 const COUNT_LAG_MS = 500;
 
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+/** 大数字上一次的目标值：组件重挂（切页签、切窗口时骨架闪一下）也从它起跳，不回 0。null = 还没出现过 */
+let lastActivityShown: number | null = null;
 
-function useCountUp(target: number, enabled: boolean) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (!enabled) {
-      setValue(0);
-      return;
-    }
-    setValue(0);
-    const startAt = performance.now();
-    let frame = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - startAt) / COUNT_MS);
-      setValue(Math.round((1 - (1 - t) ** 4) * target));
-      if (t < 1) frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, [enabled, target]);
-  return value;
-}
-
+/** 首次进场：先停在 0，等面板露头后再从 0 补间到目标；之后任何变化都从当前值补间到新目标（rc-tween-one Children）。 */
 function ActivityTotal({ total, windowKey }: { total: number; windowKey: number }) {
-  const reduce = prefersReducedMotion();
-  const [armedKey, setArmedKey] = useState(windowKey);
-  const [enabled, setEnabled] = useState(reduce);
-  if (armedKey !== windowKey) {
-    setArmedKey(windowKey);
-    setEnabled(reduce);
-  }
+  void windowKey;
+  const [from] = useState(() => lastActivityShown ?? 0);
+  const [first] = useState(() => lastActivityShown == null);
+  const [ready, setReady] = useState(!first || prefersReducedMotion());
+
   useEffect(() => {
-    if (reduce) {
-      setEnabled(true);
-      return;
-    }
-    setEnabled(false);
-    const id = window.setTimeout(() => setEnabled(true), COUNT_LAG_MS);
+    if (!first || prefersReducedMotion()) return;
+    const id = window.setTimeout(() => setReady(true), COUNT_LAG_MS);
     return () => window.clearTimeout(id);
-  }, [reduce, total, windowKey]);
-  const counted = useCountUp(total, enabled && !reduce);
-  const shown = reduce ? total : enabled ? counted : 0;
-  return <div className="activity-num">{shown}</div>;
+  }, [first]);
+
+  useEffect(() => {
+    if (ready) lastActivityShown = total;
+  }, [ready, total]);
+
+  return <TweenNumber className="activity-num" as="div" value={ready ? total : from} from={from} />;
 }
 
-function ActivityRows({ rows, showActor, zebra }: { rows: Recent[]; showActor?: boolean; zebra?: boolean }) {
+function ActivityRows({ rows, showActor }: { rows: Recent[]; showActor?: boolean }) {
   if (rows.length === 0) {
     return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这段时间还没有操作" />;
   }
   return (
-    <ul className={zebra ? "activity-log is-zebra" : "activity-log"}>
-      {rows.map((item) => {
+    <ul className="activity-log is-zebra">
+      {rows.map((item, rowIndex) => {
         const at = parseIso(item.at.slice(0, 10));
         const clock = item.at.slice(11, 16);
         const title = item.kind === "auth" && item.action === "login" ? "登录" : item.title;
         return (
-          <li className="activity-log__item" key={`${item.at}-${item.action}`}>
+          <li className="activity-log__item dash-queue-item" style={queueItemStyle(rowIndex, rows.length)} key={`${item.at}-${item.action}`}>
             <span className="activity-log__date">
               <b>{pad(at.getDate())}</b>
               <small>{at.getMonth() + 1}月</small>
@@ -384,7 +359,7 @@ function MyActivity({ days, capped, ready }: { days: number; capped?: boolean; r
         <Typography.Text strong>最近动态</Typography.Text>
         <Typography.Text type="secondary">最新 4 条</Typography.Text>
       </div>
-      <ActivityRows rows={data.recent.slice(0, 4)} zebra />
+      <ActivityRows rows={data.recent.slice(0, 4)} />
     </>
   );
 }
@@ -434,7 +409,7 @@ function AuditPanel({ state, ready }: { state: ListState; ready: boolean }) {
       ) : (
         <>
           {rows.length > 0 ? <div className="activity-chart-sub" style={{ margin: "0 0 10px" }}>最近 {rows.length} 条后台行为</div> : null}
-          <ActivityRows rows={rows} showActor zebra />
+          <ActivityRows rows={rows} showActor />
         </>
       )}
     </>
@@ -457,18 +432,7 @@ export function ActivityPanel({
   todoState?: ListState;
 }) {
   void animate;
-  const { robots } = useRobots();
-  // 待办 = 最近的失败执行最多 3 条（点去执行记录）+ 离线执行机最多 2 条（点去执行机）
-  const todos =
-    todoState === "empty"
-      ? []
-      : [
-          ...TODO_FAILED.slice(0, 3).map((row) => ({ key: row.id, title: row.app, sub: row.reason || "执行失败", to: RECORDS_PATH })),
-          ...robots
-            .filter((robot) => !robot.online)
-            .slice(0, 2)
-            .map((robot) => ({ key: robot.id, title: robot.name, sub: "执行机离线", to: WORKERS_PATH })),
-        ];
+  void todoState;
   return (
     <Tabs
       className="activity-tabs"
@@ -492,9 +456,9 @@ export function ActivityPanel({
           key: "quick",
           label: "快捷入口",
           children: (
-            <ul className="activity-log">
-              {QUICK_LINKS.map((link) => (
-                <li className="activity-log__item" key={link.path}>
+            <ul className="activity-log is-zebra">
+              {QUICK_LINKS.map((link, index) => (
+                <li className="activity-log__item dash-queue-item" style={queueItemStyle(index, QUICK_LINKS.length)} key={link.path}>
                   <Link className="activity-log__link" to={link.path}>
                     <span className="activity-log__date activity-log__icon">{link.icon}</span>
                     <span className="activity-log__body">
@@ -509,22 +473,9 @@ export function ActivityPanel({
         },
         {
           key: "todo",
-          label: todos.length > 0 ? `待办 (${todos.length})` : "待办",
-          children:
-            todos.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有要处理的失败或离线机器" />
-            ) : (
-              <ul className="activity-log">
-                {todos.map((todo) => (
-                  <li className="activity-log__item" key={todo.key}>
-                    <Link className="activity-log__body" to={todo.to}>
-                      <div className="activity-log__title">{todo.title}</div>
-                      <div className="activity-log__sub">{todo.sub}</div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ),
+          label: "待办",
+          // 系统还没有待办流程与数据来源：永远是空态，不拿失败执行、离线执行机冒充
+          children: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无待办" />,
         },
       ]}
     />

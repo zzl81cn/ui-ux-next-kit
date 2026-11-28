@@ -22,6 +22,9 @@ export function LoginPage() {
   const captchaInputRef = useRef<InputRef>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
+  const glowTarget = useRef({ x: 0, y: 0 });
+  const glowShown = useRef({ x: 0, y: 0 });
+  const glowArmed = useRef(false);
   const brand = useSiteBrand();
   const captchaOn = loadCaptchaSettings().enabled;
   const redirect = params.get("redirect") || "/stats";
@@ -42,19 +45,53 @@ export function LoginPage() {
     if (loadCaptchaSettings().enabled) captchaInputRef.current?.focus();
   }, [reloadCaptcha]);
 
-  useEffect(() => () => window.cancelAnimationFrame(frame.current), []);
+  useEffect(
+    () => () => {
+      window.cancelAnimationFrame(frame.current);
+      frame.current = 0;
+    },
+    [],
+  );
 
-  /** 指针光晕：位置写进 CSS 变量，经 requestAnimationFrame 合并，不触发重渲染 */
+  /** 指针光晕：目标点跟鼠标，显示点每帧向目标插值（阻尼约 0.16），只写 CSS 变量，不 setState */
+  function paintGlow() {
+    frame.current = 0;
+    const card = cardRef.current;
+    if (!card) return;
+    const shown = glowShown.current;
+    const target = glowTarget.current;
+    shown.x += (target.x - shown.x) * 0.16;
+    shown.y += (target.y - shown.y) * 0.16;
+    card.style.setProperty("--mouse-x", `${shown.x.toFixed(1)}px`);
+    card.style.setProperty("--mouse-y", `${shown.y.toFixed(1)}px`);
+    const dx = target.x - shown.x;
+    const dy = target.y - shown.y;
+    if (glowArmed.current && dx * dx + dy * dy > 0.25) {
+      frame.current = window.requestAnimationFrame(paintGlow);
+    }
+  }
+
   function trackPointer(event: MouseEvent<HTMLDivElement>) {
-    const { clientX, clientY } = event;
+    const card = cardRef.current;
+    if (!card) return;
+    const box = card.getBoundingClientRect();
+    const x = event.clientX - box.left;
+    const y = event.clientY - box.top;
+    glowTarget.current = { x, y };
+    if (!glowArmed.current) {
+      glowArmed.current = true;
+      glowShown.current = { x, y };
+      card.style.setProperty("--mouse-x", `${x.toFixed(1)}px`);
+      card.style.setProperty("--mouse-y", `${y.toFixed(1)}px`);
+      return;
+    }
+    if (!frame.current) frame.current = window.requestAnimationFrame(paintGlow);
+  }
+
+  function leavePointer() {
+    glowArmed.current = false;
     window.cancelAnimationFrame(frame.current);
-    frame.current = window.requestAnimationFrame(() => {
-      const card = cardRef.current;
-      if (!card) return;
-      const box = card.getBoundingClientRect();
-      card.style.setProperty("--mouse-x", `${clientX - box.left}px`);
-      card.style.setProperty("--mouse-y", `${clientY - box.top}px`);
-    });
+    frame.current = 0;
   }
 
   if (hasSession()) {
@@ -92,10 +129,26 @@ export function LoginPage() {
   return (
     <div className="console-login">
       <div className="console-login__canvas" aria-hidden="true">
+        {/* 三团大晕：位置固定，青 / 紫 / 蓝三色在三个位置上轮转互换 */}
+        <span className="console-login__wash console-login__wash--bl">
+          <i className="console-login__tone console-login__tone--teal" />
+          <i className="console-login__tone console-login__tone--violet" />
+          <i className="console-login__tone console-login__tone--blue" />
+        </span>
+        <span className="console-login__wash console-login__wash--right">
+          <i className="console-login__tone console-login__tone--teal" />
+          <i className="console-login__tone console-login__tone--violet" />
+          <i className="console-login__tone console-login__tone--blue" />
+        </span>
+        <span className="console-login__wash console-login__wash--top">
+          <i className="console-login__tone console-login__tone--teal" />
+          <i className="console-login__tone console-login__tone--violet" />
+          <i className="console-login__tone console-login__tone--blue" />
+        </span>
         <span className="console-login__orb console-login__orb--a" />
         <span className="console-login__orb console-login__orb--b" />
       </div>
-      <div className="console-login-card" ref={cardRef} onMouseMove={trackPointer}>
+      <div className="console-login-card" ref={cardRef} onMouseMove={trackPointer} onMouseLeave={leavePointer}>
         {brand.logo_url ? (
           <img src={brand.logo_url} alt="" style={{ height: 40, width: "auto" }} />
         ) : (

@@ -1,4 +1,4 @@
-import { Alert, Button, Form, Input, Modal, message } from "antd";
+import { Alert, Button, Form, Input, message } from "antd";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { openLayoutSettings } from "../layouts/layoutSettingsEvent";
@@ -15,16 +15,21 @@ type TabKey = (typeof TABS)[number]["key"];
 
 export function AccountSettingsPage() {
   const [params, setParams] = useSearchParams();
-  const [tab, setTab] = useState<TabKey>("base");
-  const [passwordOpen, setPasswordOpen] = useState(false);
   const due = sessionStorage.getItem("demo-password-due");
+  const forced = due === "expired" || due === "reset";
+  const openPassword = params.get("open") === "password";
+  const [tab, setTab] = useState<TabKey>(forced || openPassword ? "security" : "base");
 
   useEffect(() => {
-    if (params.get("open") === "password") {
-      setTab("security");
-      setPasswordOpen(true);
-    }
-  }, [params]);
+    if (forced || openPassword) setTab("security");
+  }, [forced, openPassword]);
+
+  useEffect(() => {
+    if (!openPassword) return;
+    const next = new URLSearchParams(params);
+    next.delete("open");
+    setParams(next, { replace: true });
+  }, [openPassword, params, setParams]);
 
   return (
     <>
@@ -48,14 +53,7 @@ export function AccountSettingsPage() {
         </nav>
         <div className="account-settings__main">
           {tab === "base" ? <BaseForm /> : null}
-          {tab === "security" ? (
-            <>
-              <h2>安全设置</h2>
-              <Button type="primary" onClick={() => setPasswordOpen(true)}>
-                修改密码
-              </Button>
-            </>
-          ) : null}
+          {tab === "security" ? <SecurityForm forced={forced} /> : null}
           {tab === "binding" ? (
             <>
               <h2>账号绑定</h2>
@@ -79,32 +77,6 @@ export function AccountSettingsPage() {
           ) : null}
         </div>
       </div>
-      <Modal
-        title="修改密码"
-        open={passwordOpen}
-        okText="保存"
-        onCancel={() => {
-          setPasswordOpen(false);
-          if (params.get("open")) {
-            const next = new URLSearchParams(params);
-            next.delete("open");
-            setParams(next, { replace: true });
-          }
-        }}
-        onOk={() => {
-          message.success("已保存");
-          setPasswordOpen(false);
-        }}
-      >
-        <Form layout="vertical">
-          <Form.Item label="当前密码">
-            <Input.Password />
-          </Form.Item>
-          <Form.Item label="新密码">
-            <Input.Password />
-          </Form.Item>
-        </Form>
-      </Modal>
     </>
   );
 }
@@ -131,6 +103,56 @@ function BaseForm() {
         </Form>
         <div className="account-settings__avatar">头像</div>
       </div>
+    </>
+  );
+}
+
+function SecurityForm({ forced }: { forced: boolean }) {
+  return (
+    <>
+      <h2>安全设置</h2>
+      <Form
+        className="account-settings__password"
+        layout="vertical"
+        requiredMark={false}
+        onFinish={() => {
+          message.success("密码已更新");
+          if (forced) sessionStorage.removeItem("demo-password-due");
+        }}
+      >
+        <Form.Item name="current" label="当前密码" rules={[{ required: true, message: "请输入当前密码" }]}>
+          <Input.Password autoComplete="current-password" />
+        </Form.Item>
+        <Form.Item
+          name="next"
+          label="新密码"
+          rules={[
+            { required: true, message: "请输入新密码" },
+            { min: 8, message: "新密码至少 8 位" },
+          ]}
+        >
+          <Input.Password autoComplete="new-password" />
+        </Form.Item>
+        <Form.Item
+          name="confirm"
+          label="确认新密码"
+          dependencies={["next"]}
+          rules={[
+            { required: true, message: "请再次输入新密码" },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue("next") === value) return Promise.resolve();
+                return Promise.reject(new Error("两次输入的密码不一致"));
+              },
+            }),
+          ]}
+        >
+          <Input.Password autoComplete="new-password" />
+        </Form.Item>
+        <Button type="primary" htmlType="submit">
+          保存
+        </Button>
+      </Form>
     </>
   );
 }

@@ -22,6 +22,12 @@ type FlatRow<T> = {
   isExpanded: boolean;
   /** 所属的一级节点已是根的最后一个子节点。根干不必再往下延伸。 */
   lastRootChild: boolean;
+  /**
+   * 祖先列是否还要往下画竖线。下标 = 深度。
+   * 进入某节点的子树时写入 `!isLast`：该节点后面还有同级，子孙行左侧要把这一列干续上。
+   * 否则三级（及更深）行只画根干和直接父级，中间的一级紫干会断在展开的二级子树里。
+   */
+  ancestorContinues: boolean[];
 };
 
 function depthColor(depth: number, dark: boolean): string {
@@ -61,6 +67,7 @@ function flattenRows<T>(
   rootHasNextSibling = false,
   underExpandedRoot = false,
   lastRootChild = false,
+  ancestorContinues: boolean[] = [],
 ): FlatRow<T>[] {
   const rows: FlatRow<T>[] = [];
   nodes.forEach((node, index) => {
@@ -82,6 +89,7 @@ function flattenRows<T>(
       hasChildren,
       isExpanded,
       lastRootChild: rowLastRootChild,
+      ancestorContinues,
     });
     if (hasChildren && isExpanded) {
       rows.push(
@@ -94,6 +102,7 @@ function flattenRows<T>(
           isRoot ? !isLast : rootHasNextSibling,
           underExpandedRoot || (isRoot && isExpanded),
           isRoot ? false : rowLastRootChild,
+          [...ancestorContinues, !isLast],
         ),
       );
     }
@@ -143,6 +152,24 @@ function Rail({ row, dark }: { row: FlatRow<unknown>; dark: boolean }) {
 
   const parentX = columnX(row.depth - 1);
   const parentColor = depthColor(row.depth - 1, dark);
+  const ancestorRails: ReactNode[] = [];
+  // 根干（depth 0）仍走下面的特殊逻辑；这里补 1‥depth-2 的中间祖先干
+  for (let level = 1; level < row.depth - 1; level += 1) {
+    if (!row.ancestorContinues[level]) continue;
+    const x = columnX(level);
+    ancestorRails.push(
+      <line
+        key={`anc-${level}`}
+        x1={x}
+        y1={-overlap}
+        x2={x}
+        y2={ROW_H + overlap}
+        stroke={depthColor(level, dark)}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />,
+    );
+  }
   return (
     <svg className="dept-graph__svg" width={width} height={ROW_H} aria-hidden>
       {row.underExpandedRoot && (row.rootHasNextSibling || !row.lastRootChild) ? (
@@ -151,6 +178,7 @@ function Rail({ row, dark }: { row: FlatRow<unknown>; dark: boolean }) {
       {!row.underExpandedRoot && row.rootHasNextSibling && row.closesRootSubtree ? (
         <line x1={rootX} y1={midY} x2={rootX} y2={ROW_H + overlap} stroke={rootColor} strokeWidth={2} strokeLinecap="round" />
       ) : null}
+      {ancestorRails}
       <line x1={parentX} y1={-overlap} x2={parentX} y2={midY} stroke={parentColor} strokeWidth={2} strokeLinecap="round" />
       {!row.isLast ? (
         <line x1={parentX} y1={midY} x2={parentX} y2={ROW_H + overlap} stroke={parentColor} strokeWidth={2} strokeLinecap="round" />

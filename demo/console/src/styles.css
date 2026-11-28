@@ -1,5 +1,7 @@
 html {
   --console-elevation-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+  /* 顶栏：底边发丝线 + 向下柔影，内容从栏下滑过时有层次 */
+  --console-elevation-header: 0 1px 0 rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08);
   --console-card-border: rgba(15, 23, 32, 0.06);
 }
 
@@ -455,6 +457,7 @@ html[data-console-theme="dark"] {
   color-scheme: dark;
   background: #000;
   --console-elevation-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 28px rgba(0, 0, 0, 0.32);
+  --console-elevation-header: 0 1px 0 rgba(255, 255, 255, 0.07), 0 6px 20px rgba(0, 0, 0, 0.55);
   --console-card-border: rgba(255, 255, 255, 0.08);
   --console-tag-red: #f98d86;
   --console-tag-red-bg: color-mix(in srgb, #f76965 22%, transparent);
@@ -470,6 +473,32 @@ html[data-console-theme="dark"] {
   --console-tag-blue-bg: color-mix(in srgb, #3c7eff 22%, transparent);
   --console-tag-purple: #c396ed;
   --console-tag-purple-bg: color-mix(in srgb, #8d4eda 22%, transparent);
+}
+
+/* 顶栏半透明磨砂：内容滚到栏下时朦胧可见。滚动区上提到顶栏背后，
+   正文用 padding-top 让出 56px；吸顶元素的 top 加 --console-header-h。 */
+html.console-viewport-lock .ant-pro-layout .ant-pro-layout-container > .ant-layout-header:not(.ant-pro-layout-header) {
+  display: none;
+}
+
+html.console-viewport-lock .ant-pro-layout .ant-pro-layout-content {
+  --console-header-h: 56px;
+}
+
+html.console-viewport-lock .ant-pro-layout .ant-pro-layout-content .console-main-content {
+  padding-top: calc(var(--console-header-h) + 16px);
+  scroll-padding-top: var(--console-header-h);
+}
+
+.ant-layout-header.ant-pro-layout-header {
+  box-shadow: var(--console-elevation-header);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* 浅色原先实色 #fff，磨砂透不出来；72% 白才有朦胧感 */
+html[data-console-theme="light"] .ant-layout-header.ant-pro-layout-header {
+  background-color: rgba(255, 255, 255, 0.72) !important;
 }
 
 .ant-pro-global-header-header-actions-item {
@@ -2695,12 +2724,6 @@ html[data-console-theme="dark"] .dept-tree-summary__pill--node {
   background: var(--ant-color-bg-container);
   border: 1px solid var(--ant-color-border-secondary);
 }
-.dept-tree-toolbar__help {
-  color: var(--ant-color-text-tertiary) !important;
-}
-.dept-tree-toolbar__help:hover {
-  color: var(--ant-color-primary) !important;
-}
 .dept-tree-toolbar__controls {
   margin-inline-start: auto;
 }
@@ -3355,6 +3378,10 @@ html[data-console-theme="dark"] .account-settings__nav button.is-on {
 
 .account-settings__base form {
   flex: 1;
+  max-width: 448px;
+}
+
+.account-settings__password {
   max-width: 448px;
 }
 

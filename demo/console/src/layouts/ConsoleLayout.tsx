@@ -132,6 +132,10 @@ export function ConsoleLayout() {
   useEffect(() => {
     if (!mobile) setAccountOpen(false);
   }, [mobile]);
+  useEffect(() => {
+    document.documentElement.classList.add("console-viewport-lock");
+    return () => document.documentElement.classList.remove("console-viewport-lock");
+  }, []);
   const menus = useSyncExternalStore(subscribeMenus, getMenuTree);
   const pageMotion = usePageSlideDirection(location.pathname, menus);
   const routes = toRoutes(visibleMenus(menus));
@@ -187,8 +191,8 @@ export function ConsoleLayout() {
       token={{
         bgLayout: dark ? "#000" : "#f5f5f5",
         header: {
-          colorBgHeader: dark ? "rgba(31, 31, 31, 0.6)" : "#fff",
-          colorBgScrollHeader: dark ? "rgba(31, 31, 31, 0.6)" : "#fff",
+          colorBgHeader: dark ? "rgba(31, 31, 31, 0.6)" : "rgba(255, 255, 255, 0.72)",
+          colorBgScrollHeader: dark ? "rgba(31, 31, 31, 0.6)" : "rgba(255, 255, 255, 0.72)",
         },
         sider: dark
           ? {

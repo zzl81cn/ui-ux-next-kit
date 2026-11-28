@@ -4,12 +4,12 @@ import {
   NodeCollapseOutlined,
   NodeExpandOutlined,
   PlusOutlined,
-  QuestionCircleFilled,
   ReloadOutlined,
 } from "@ant-design/icons";
-import { Button, Empty, Form, Input, Modal, Space, Tooltip, TreeSelect, message } from "antd";
+import { Button, Empty, Form, Input, Modal, Space, TreeSelect, message } from "antd";
 import type { DataNode } from "antd/es/tree";
 import { useMemo, useState } from "react";
+import { PageHelpTip } from "../components/PageHelpTip";
 import { DeptGraphTree } from "./departments/DeptGraphTree";
 
 type Dept = {
@@ -31,12 +31,50 @@ const DRAG_HELP = "拖拽行首仅调整同级顺序。更换上级请点「编�
 
 const SEED: Dept[] = [
   { id: ROOT_ID, name: "示例公司", parent_id: null, sort_order: 0, user_count: 0, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
-  { id: "d-rd", name: "研发", parent_id: ROOT_ID, sort_order: 0, user_count: 12, extra_user_count: 1, app_count: 4, robot_count: 2, group_count: 1 },
-  { id: "d-fe", name: "前端", parent_id: "d-rd", sort_order: 0, user_count: 4, extra_user_count: 0, app_count: 2, robot_count: 0, group_count: 0 },
-  { id: "d-be", name: "后端", parent_id: "d-rd", sort_order: 1, user_count: 6, extra_user_count: 0, app_count: 2, robot_count: 1, group_count: 0 },
-  { id: "d-ops", name: "运营", parent_id: ROOT_ID, sort_order: 1, user_count: 8, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 2 },
-  { id: "d-north", name: "华北", parent_id: "d-ops", sort_order: 0, user_count: 3, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 1 },
-  { id: "d-fin", name: "财务", parent_id: ROOT_ID, sort_order: 2, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-rd", name: "研发中心", parent_id: ROOT_ID, sort_order: 0, user_count: 28, extra_user_count: 2, app_count: 9, robot_count: 5, group_count: 3 },
+  { id: "d-fe", name: "前端", parent_id: "d-rd", sort_order: 0, user_count: 8, extra_user_count: 0, app_count: 3, robot_count: 0, group_count: 1 },
+  { id: "d-fe-web", name: "Web 端", parent_id: "d-fe", sort_order: 0, user_count: 4, extra_user_count: 0, app_count: 2, robot_count: 0, group_count: 0 },
+  { id: "d-fe-mobile", name: "移动端", parent_id: "d-fe", sort_order: 1, user_count: 3, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 0 },
+  { id: "d-fe-design", name: "体验体验", parent_id: "d-fe", sort_order: 2, user_count: 1, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-be", name: "后端", parent_id: "d-rd", sort_order: 1, user_count: 11, extra_user_count: 1, app_count: 4, robot_count: 2, group_count: 1 },
+  { id: "d-be-api", name: "平台服务", parent_id: "d-be", sort_order: 0, user_count: 5, extra_user_count: 0, app_count: 2, robot_count: 1, group_count: 0 },
+  { id: "d-be-data", name: "数据服务", parent_id: "d-be", sort_order: 1, user_count: 4, extra_user_count: 1, app_count: 1, robot_count: 1, group_count: 0 },
+  { id: "d-be-infra", name: "基础架构", parent_id: "d-be", sort_order: 2, user_count: 2, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 1 },
+  { id: "d-qa", name: "质量保障", parent_id: "d-rd", sort_order: 2, user_count: 5, extra_user_count: 0, app_count: 1, robot_count: 2, group_count: 1 },
+  { id: "d-qa-auto", name: "自动化测试", parent_id: "d-qa", sort_order: 0, user_count: 3, extra_user_count: 0, app_count: 1, robot_count: 2, group_count: 1 },
+  { id: "d-qa-manual", name: "业务测试", parent_id: "d-qa", sort_order: 1, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-sre", name: "运维与 SRE", parent_id: "d-rd", sort_order: 3, user_count: 4, extra_user_count: 1, app_count: 1, robot_count: 1, group_count: 0 },
+  { id: "d-ops", name: "运营中心", parent_id: ROOT_ID, sort_order: 1, user_count: 18, extra_user_count: 1, app_count: 3, robot_count: 1, group_count: 4 },
+  { id: "d-north", name: "华北大区", parent_id: "d-ops", sort_order: 0, user_count: 6, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 2 },
+  { id: "d-north-bj", name: "北京站", parent_id: "d-north", sort_order: 0, user_count: 3, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 1 },
+  { id: "d-north-tj", name: "天津站", parent_id: "d-north", sort_order: 1, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 1 },
+  { id: "d-north-sjz", name: "石家庄站", parent_id: "d-north", sort_order: 2, user_count: 1, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-east", name: "华东大区", parent_id: "d-ops", sort_order: 1, user_count: 7, extra_user_count: 1, app_count: 1, robot_count: 1, group_count: 1 },
+  { id: "d-east-sh", name: "上海站", parent_id: "d-east", sort_order: 0, user_count: 4, extra_user_count: 1, app_count: 1, robot_count: 1, group_count: 1 },
+  { id: "d-east-hz", name: "杭州站", parent_id: "d-east", sort_order: 1, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-east-nj", name: "南京站", parent_id: "d-east", sort_order: 2, user_count: 1, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-south", name: "华南大区", parent_id: "d-ops", sort_order: 2, user_count: 5, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 1 },
+  { id: "d-south-sz", name: "深圳站", parent_id: "d-south", sort_order: 0, user_count: 3, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 1 },
+  { id: "d-south-gz", name: "广州站", parent_id: "d-south", sort_order: 1, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-prod", name: "产品与设计", parent_id: ROOT_ID, sort_order: 2, user_count: 9, extra_user_count: 0, app_count: 2, robot_count: 0, group_count: 1 },
+  { id: "d-prod-pm", name: "产品经理", parent_id: "d-prod", sort_order: 0, user_count: 5, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 0 },
+  { id: "d-prod-ux", name: "用户体验", parent_id: "d-prod", sort_order: 1, user_count: 3, extra_user_count: 0, app_count: 1, robot_count: 0, group_count: 1 },
+  { id: "d-prod-research", name: "用户研究", parent_id: "d-prod", sort_order: 2, user_count: 1, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-sales", name: "销售部", parent_id: ROOT_ID, sort_order: 3, user_count: 14, extra_user_count: 2, app_count: 1, robot_count: 0, group_count: 2 },
+  { id: "d-sales-ka", name: "大客户", parent_id: "d-sales", sort_order: 0, user_count: 6, extra_user_count: 1, app_count: 1, robot_count: 0, group_count: 1 },
+  { id: "d-sales-smb", name: "中小企业", parent_id: "d-sales", sort_order: 1, user_count: 5, extra_user_count: 1, app_count: 0, robot_count: 0, group_count: 1 },
+  { id: "d-sales-partner", name: "渠道伙伴", parent_id: "d-sales", sort_order: 2, user_count: 3, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-cs", name: "客户成功", parent_id: ROOT_ID, sort_order: 4, user_count: 7, extra_user_count: 0, app_count: 1, robot_count: 1, group_count: 1 },
+  { id: "d-cs-impl", name: "实施交付", parent_id: "d-cs", sort_order: 0, user_count: 4, extra_user_count: 0, app_count: 1, robot_count: 1, group_count: 1 },
+  { id: "d-cs-support", name: "售后支持", parent_id: "d-cs", sort_order: 1, user_count: 3, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-fin", name: "财务部", parent_id: ROOT_ID, sort_order: 5, user_count: 5, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-fin-acc", name: "会计核算", parent_id: "d-fin", sort_order: 0, user_count: 3, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-fin-tax", name: "税务与资金", parent_id: "d-fin", sort_order: 1, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-hr", name: "人力资源", parent_id: ROOT_ID, sort_order: 6, user_count: 4, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-hr-recruit", name: "招聘", parent_id: "d-hr", sort_order: 0, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-hr-bp", name: "员工关系", parent_id: "d-hr", sort_order: 1, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-legal", name: "法务合规", parent_id: ROOT_ID, sort_order: 7, user_count: 2, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
+  { id: "d-admin", name: "行政后勤", parent_id: ROOT_ID, sort_order: 8, user_count: 3, extra_user_count: 0, app_count: 0, robot_count: 0, group_count: 0 },
 ];
 
 function usageText(row: Dept) {
@@ -177,9 +215,7 @@ export function DepartmentsPage() {
         </div>
       </section>
       <div className="dept-tree-toolbar">
-        <Tooltip title={DRAG_HELP}>
-          <Button type="text" className="dept-tree-toolbar__help" icon={<QuestionCircleFilled />} aria-label="拖拽说明" />
-        </Tooltip>
+        <PageHelpTip title="拖拽说明">{DRAG_HELP}</PageHelpTip>
         <Space className="dept-tree-toolbar__controls">
           <Input.Search
             allowClear

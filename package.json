@@ -22,7 +22,8 @@
     "build": "pnpm --filter console-demo build",
     "build:demo": "pnpm --filter console-demo build",
     "typecheck": "pnpm --filter console-demo typecheck",
-    "postinstall": "node bin/cli.js install --from-postinstall"
+    "postinstall": "node bin/cli.js install --from-postinstall",
+    "version": "node -e \"const fs=require('fs');const p=require('./package.json');const s=require('./skill.json');s.version=p.version;fs.writeFileSync('skill.json',JSON.stringify(s,null,2)+'\\n')\" && git add skill.json"
   },
   "engines": {
     "node": ">=18"

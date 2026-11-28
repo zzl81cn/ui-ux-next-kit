@@ -2,7 +2,7 @@
   "name": "ui-ux-next-kit",
   "displayName": "UI/UX Next Kit",
   "description": "Extensible UI/UX Agent Skill kit. Restoring a page starts at references/public-components.md and that section's checklist. Audits stay read-only and write YYYYMMDD-[project]UI-UX审计报告.md at the project root.",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "author": "UI/UX Next Kit",
   "license": "MIT",
   "keywords": [

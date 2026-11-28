@@ -64,7 +64,7 @@ cd demo/console && pnpm install && pnpm dev
 
 ## 发布和应用
 
-当前发布版本是 `0.0.7`，页面是 https://www.npmjs.com/package/ui-ux-next-kit 。`latest` 指向这一版。注册表上的 `0.0.0-stage` 是 npm 的占位版本，不要安装，也不要删除。
+当前发布版本是 `0.0.8`，页面是 https://www.npmjs.com/package/ui-ux-next-kit 。`latest` 指向这一版。注册表上的 `0.0.0-stage` 是 npm 的占位版本，不要安装，也不要删除。
 
 Cursor 读的仍是 `SKILL.md`。npm 包负责把这份目录挂进项目，并让后续版本能被 `npm update` 拉下来。包里有契约、脚本、规则和示例。`demo/` 留在 Git 仓库，不进 npm 包。同事要看可运行的演示，克隆仓库后按下面的「演示」一节启动。
 
@@ -75,15 +75,15 @@ npm install ui-ux-next-kit
 npm update ui-ux-next-kit
 ```
 
-**发版：版本号由你指定，再执行命令。** 先把要发的改动提交到 `main`，再按你定的版本号（例如下一版 `0.0.8`）执行：
+**发版：版本号由你指定，再执行命令。** 先把要发的改动提交到 `main`，再按你定的版本号（例如下一版 `0.0.9`）执行：
 
 ```bash
-npm version 0.0.8 -m "Release %s."
+npm version 0.0.9 -m "Release %s."
 git push origin main --follow-tags
 npm publish
 ```
 
-`npm version` 会改 `package.json`、用 `version` 脚本同步 `skill.json`、打出提交，并创建 `v0.0.8` 标签。推送带 `--follow-tags` 后，GitHub Actions 会按该标签自动生成 [GitHub Release](https://github.com/zzl81cn/ui-ux-next-kit/releases)；`npm publish` 仍需手动执行。不要用 `npm version patch` 自动加一档——版本号以你指定的为准。推送若改动了 `demo/console/**`，Pages 会同步更新在线演示。
+`npm version` 会改 `package.json`、用 `version` 脚本同步 `skill.json`、打出提交，并创建 `v0.0.9` 标签。推送带 `--follow-tags` 后，GitHub Actions 会按该标签自动生成 [GitHub Release](https://github.com/zzl81cn/ui-ux-next-kit/releases)；`npm publish` 仍需手动执行。不要用 `npm version patch` 自动加一档——版本号以你指定的为准。推送若改动了 `demo/console/**`，Pages 会同步更新在线演示。
 
 两条规则是软链。要改某一条时，先删掉软链再放自己的文件，安装器看到普通文件就不会覆盖。
 
